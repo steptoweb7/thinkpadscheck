@@ -25,7 +25,44 @@ Out of scope (deferred, not building now):
 - Learning market prices automatically from scraped history (may be
   a future iteration once the manual reference table proves useful).
 - Web UI / dashboard. This is a headless script + email only.
-- Parsing the listing detail page (title-only parsing for v1).
+- Fetching the listing detail page (search-results page data is
+  sufficient — see Data source below).
+
+## Data source (important technical finding)
+
+OLX's search-results page does NOT render full listing cards into
+static server HTML — only 3 "promoted" cards are present as real DOM
+elements; the rest are hydrated client-side from a JSON blob embedded
+in the page: a `<script>` sets
+`window.__PRERENDERED_STATE__ = "<JSON-escaped JSON string>";`.
+
+This blob is far better than scraping rendered HTML: it contains, per
+ad, `id`, `title`, `description` (full text, not just title), `url`,
+`createdTime`, `location.pathName`, `price.regularPrice.value`, and a
+`params` array of structured filters the seller picked, e.g.:
+
+```json
+{
+  "state": "Utilizat" | "Nou",
+  "tip_stocare": "SSD" | "HDD" | "HDD+SSD",
+  "capacitate_memorie_ram": "< 4 GB" | "4 - 6 GB" | "6 - 8 GB" |
+                            "8 - 12 GB" | "12 - 16 GB" | "> 16 GB",
+  "producator_procesor": "Intel " | "AMD " | "Apple",
+  "tip_placa_video": "Integrata" | "Dedicata",
+  "diagonala": "..."
+}
+```
+
+There is no structured CPU-generation field — that still requires a
+regex over `title` + `description`. RAM is bucketed, not exact — see
+filter rule 3 below for how the buckets are handled.
+
+**Extraction:** regex out the JSON string assigned to
+`window.__PRERENDERED_STATE__` from the raw HTML, `json.loads` it
+twice (it's a JSON string containing a JSON string), then read
+`state["listing"]["listing"]["ads"]` — a list of ad objects as above.
+No BeautifulSoup / CSS selectors needed; no JS execution needed. A
+single `requests.get()` on the filter URL is sufficient.
 
 ## Reference filter link
 
@@ -41,10 +78,12 @@ business-class laptops meeting the spec bar rarely appear under 1000.)
 Windows Task Scheduler (every 60 min)
       │
       ▼
-scraper.py   → HTTP GET the filter URL above, parse listing cards from HTML
+scraper.py   → HTTP GET the filter URL above (one request, one page)
       │
       ▼
-parser.py    → per listing: id, title, price, url, location, posted_at
+parser.py    → extract window.__PRERENDERED_STATE__ JSON, return list of
+               ad dicts: id, title, description, price, url, location,
+               created_time, params (see Data source below)
       │
       ▼
 filter.py    → hard filters (see below); listings that fail are dropped
@@ -67,26 +106,34 @@ script starts, does one pass, exits.
 
 A listing must pass ALL of the following to proceed to scoring:
 
-1. **Not defective/for parts.** Title (and short description, if
-   available) does not contain: `defect`, `nefunctional`, `pe piese`,
-   `pentru piese`, `pt piese`, `spart`, `crapat`, `nu porneste`
-   (case-insensitive, diacritic-insensitive match).
-2. **Business-class model.** Title matches one of the known model
-   families (initial list, extend as needed):
-   - Lenovo ThinkPad: `T4[0-9]0`, `T5[0-9]0`, `X13`, `X1`, `P14s`, `L14`
-   - Dell Latitude: `Latitude \d{4}`
-   - HP: `EliteBook \d{3}`, `ProBook \d{3}`
-3. **RAM >= 16GB.** Extracted via regex `(\d+)\s*GB` (or `Gb`, `gb`) in
-   the title. If no RAM is mentioned, the listing is EXCLUDED (can't
-   confirm the requirement).
-4. **CPU generation.** Intel: `i[3579]-1[1-3]\d{2}` (11th–13th gen) or
-   explicit "gen 11/12/13" wording. AMD: `Ryzen [5-9] Pro (5|6|7)\d{3}`
-   or better. If CPU model is not mentioned, the listing is EXCLUDED.
-5. **Storage.** Excluded if the title explicitly contains `HDD`
-   without also mentioning `SSD`. If storage is not mentioned at all,
-   the listing is INCLUDED (business laptops in this class ship with
-   SSD by default, but this is a known false-accept risk — see Risks).
-6. **Price <= 1500 lei.**
+All text matching (rules 1, 2, 4) runs against `title + " " + description`
+lowercased, diacritic-stripped (ă/â/î/ș/ş/ț/ţ → a/a/i/s/s/t/t).
+
+1. **Not defective/for parts.** Does not contain: `defect`,
+   `nefunctional`, `pe piese`, `pentru piese`, `pt piese`, `spart`,
+   `crapat`, `nu porneste`.
+2. **Business-class model.** Matches one of the known model families
+   (initial list, extend as needed):
+   - Lenovo ThinkPad: `t4[0-9]0`, `t5[0-9]0`, `x13`, `x1`, `p14s`, `l14`
+   - Dell Latitude: `latitude ?\d{4}`
+   - HP: `elitebook ?\d{3}`, `probook ?\d{3}`
+3. **RAM >= 16GB.** Uses the `capacitate_memorie_ram` param first:
+   - `"> 16 GB"` → pass
+   - `"12 - 16 GB"` → ambiguous (covers 12–16); fall back to a regex
+     `(\d+)\s*gb` over title+description looking for an explicit
+     `16gb`/`16 gb` mention. Pass only if found; otherwise EXCLUDE.
+   - Any lower bucket, or the param missing entirely → EXCLUDE.
+4. **CPU generation.** No structured field exists for this — regex
+   only. Intel: `i[3579]-1[1-3]\d{2}` (11th–13th gen model numbers) or
+   explicit `gen(eratia)? 1[1-3]` wording. AMD: `ryzen [5-9] pro ?(5|6|7)\d{3}`
+   or newer. If no match, EXCLUDE.
+5. **Storage.** Uses the `tip_stocare` param: `"SSD"` or `"HDD+SSD"` →
+   pass. `"HDD"` alone → EXCLUDE. Param missing → EXCLUDE (structured
+   data is available for essentially every listing on this category,
+   so "missing" almost always means the ad predates the field and is
+   old/stale).
+6. **Price <= 1500 lei.** From `price.regularPrice.value`. Ads with no
+   regular price (`free`/`exchange` only) are EXCLUDED.
 
 Rules 1–6 are all AND'd together (a listing must pass every rule).
 
@@ -174,11 +221,12 @@ gmail:
 ## Testing plan
 
 1. Manual run of `scraper.py` against the live filter URL; confirm
-   10–15 listings are extracted with correct id/title/price/link.
-2. Unit tests for `filter.py` against a fixed set of sample titles
-   covering: defective listing (excluded), non-business model
-   (excluded), business model but 8GB RAM (excluded), business model
-   but old CPU (excluded), HDD-only (excluded), a clean qualifying
+   40+ listings are extracted with correct id/title/price/link/params.
+2. Unit tests for `filter.py` against a fixed set of sample ad dicts
+   (built from real captured param shapes) covering: defective listing
+   (excluded), non-business model (excluded), business model but RAM
+   bucket "8 - 12 GB" (excluded), business model but no CPU-gen match
+   (excluded), `tip_stocare: "HDD"` (excluded), a clean qualifying
    listing (included).
 3. Unit test for `scorer.py`: known model + price → expected %.
 4. End-to-end dry run with email sending mocked, verify DB dedup
@@ -196,12 +244,18 @@ gmail:
 
 ## Risks / open questions carried forward
 
-- Title-only parsing will miss or misclassify listings with unusual
-  phrasing (e.g., RAM mentioned only in the description, not title).
-  Acceptable for v1; revisit if false-negative rate seems high.
-- Storage-not-mentioned defaults to INCLUDED, which may let through
-  the rare HDD-only business laptop that didn't say so. Acceptable
-  trade-off vs. excluding legitimate SSD listings that just didn't
-  spell it out.
+- CPU generation has no structured field and relies entirely on regex
+  over free-text title+description; unusual phrasing will cause a
+  false-negative exclusion. Acceptable for v1; revisit if too many
+  otherwise-good listings get excluded for missing a CPU match.
+- The RAM bucket `"12 - 16 GB"` requires an explicit "16GB" text
+  mention to pass; a seller who only picked the dropdown bucket
+  without typing RAM anywhere in the text will be excluded even at
+  exactly 16GB. Accepted false-negative risk, same reasoning as CPU.
+- `window.__PRERENDERED_STATE__` is an internal implementation detail
+  of OLX's frontend and could change format or be removed in a
+  redesign. If scraping starts failing, this is the first thing to
+  re-verify (re-run the extraction Task 2's script against a fresh
+  page fetch).
 - Reference price table needs periodic manual upkeep as market prices
   drift; no automatic recalibration in v1 (explicitly deferred).
