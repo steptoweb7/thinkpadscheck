@@ -19,7 +19,7 @@ def build_email(listing: dict, model, score_pct) -> MIMEText:
         f"Link: {listing['url']}\n"
     )
 
-    msg = MIMEText(body)
+    msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = subject
     return msg
 
