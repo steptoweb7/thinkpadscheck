@@ -1,1 +1,9 @@
 .worktrees/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+config.yaml
+*.db
+bot.log
+failure_count.txt
