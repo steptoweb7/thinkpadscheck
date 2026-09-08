@@ -29,7 +29,7 @@ score for each new match. Design: see
 ## Running tests
 
 ```
-pytest -v
+python -m pytest -v
 ```
 
 ## Scheduling (Windows Task Scheduler)

@@ -1,5 +1,9 @@
 import re
 
+# Title-only matching: real listing descriptions are full of reseller boilerplate
+# (trade-in offers, accessory lists, other-model mentions, upgrade pricing) that
+# causes false matches/exclusions when combined with the title (found via live testing).
+
 _EXCLUDED_KEYWORDS = [
     "defect",
     "nefunctional",
@@ -20,14 +24,15 @@ _BUSINESS_MODEL_PATTERNS = [
     r"\bp14s\b",
     r"\bl14\b",
     r"\blatitude ?\d{4}\b",
-    r"\belitebook ?\d{3}\b",
-    r"\bprobook ?\d{3}\b",
+    r"\belitebook ?\d{3,4}\b",
+    r"\bprobook ?\d{3,4}\b",
 ]
 
 _CPU_GEN_PATTERNS = [
-    r"\bi[3579]-1[1-3]\d{2}[a-z]?\d?\b",
+    r"\bi[3579]-1[1-9]\d{2}[a-z]?\d?\b",
     r"\bgen(?:eratia)? ?1[1-3]\b",
-    r"\bryzen [5-9] ?pro ?(5|6|7)\d{3}\b",
+    r"\bryzen [5-9] ?pro ?(4|5|6|7|8|9)\d{3}\b",
+    r"\bcore ultra [3579]\b",
 ]
 
 _DIACRITIC_MAP = str.maketrans("ăâîșşțţ", "aaisstt")
@@ -71,16 +76,16 @@ def passes_hard_filters(listing: dict, config: dict) -> bool:
     if price is None or price > config.get("max_price", 1500):
         return False
 
-    text = f"{listing.get('title', '')} {listing.get('description', '')}"
-    if contains_excluded_keyword(text):
+    title_text = listing.get("title", "")
+    if contains_excluded_keyword(title_text):
         return False
-    if not matches_business_model(text):
+    if not matches_business_model(title_text):
         return False
 
     params = listing.get("params", {})
-    if not ram_ok(params, text):
+    if not ram_ok(params, title_text):
         return False
-    if not cpu_gen_ok(text):
+    if not cpu_gen_ok(title_text):
         return False
     if not storage_ok(params):
         return False
