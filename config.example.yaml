@@ -1,0 +1,17 @@
+filter_url: "https://www.olx.ro/electronice-si-electrocasnice/laptop-calculator-gaming/laptopuri/?search%5Bfilter_float_price%3Ato%5D=1500&search%5Border%5D=created_at%3Adesc"
+max_price: 1500
+db_path: "seen_listings.db"
+
+reference_prices:
+  "ThinkPad T480": 1800
+  "ThinkPad T490": 2000
+  "ThinkPad T14": 2200
+  "ThinkPad X13": 2100
+  "ThinkPad P14s": 2400
+  "Latitude 5490": 1600
+  "EliteBook 840": 1700
+
+gmail:
+  address: "your_email@gmail.com"
+  app_password: "your_16_char_app_password"
+  to: "your_email@gmail.com"
