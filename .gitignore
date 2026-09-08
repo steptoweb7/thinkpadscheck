@@ -6,4 +6,6 @@ __pycache__/
 config.yaml
 *.db
 bot.log
+bot.log.*
 failure_count.txt
+down_alert_sent.txt
