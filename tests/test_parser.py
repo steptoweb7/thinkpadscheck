@@ -14,6 +14,7 @@ SAMPLE_STATE = {
                     "createdTime": "2026-09-01T10:00:00+03:00",
                     "location": {"pathName": "Bucuresti"},
                     "price": {"regularPrice": {"value": 1200}},
+                    "isBusiness": True,
                     "params": [
                         {"key": "tip_stocare", "value": "SSD"},
                         {"key": "capacitate_memorie_ram", "value": "12 - 16 GB"},
@@ -64,10 +65,12 @@ def test_parse_listings_extracts_fields():
     assert first["title"] == "Laptop Lenovo ThinkPad T480 i5-8350U"
     assert first["price"] == 1200
     assert first["location"] == "Bucuresti"
+    assert first["is_business"] is True
     assert first["params"]["tip_stocare"] == "SSD"
     assert first["params"]["capacitate_memorie_ram"] == "12 - 16 GB"
 
     second = listings[1]
     assert second["id"] == "222"
     assert second["price"] is None
+    assert second["is_business"] is False
     assert second["params"] == {}

@@ -106,8 +106,12 @@ script starts, does one pass, exits.
 
 A listing must pass ALL of the following to proceed to scoring:
 
-All text matching (rules 1, 2, 4) runs against `title + " " + description`
-lowercased, diacritic-stripped (ă/â/î/ș/ş/ț/ţ → a/a/i/s/s/t/t).
+All text matching (rules 1, 2, 4) runs against the **title only**
+(lowercased, diacritic-stripped: ă/â/î/ș/ş/ț/ţ → a/a/i/s/s/t/t) — not
+the description. Live testing found that reseller descriptions are
+full of boilerplate (trade-in/buyback disclaimers, accessory lists,
+other-model mentions, paid upgrade offers) that causes false matches
+in both directions when included.
 
 1. **Not defective/for parts.** Does not contain: `defect`,
    `nefunctional`, `pe piese`, `pentru piese`, `pt piese`, `spart`,
@@ -134,8 +138,13 @@ lowercased, diacritic-stripped (ă/â/î/ș/ş/ț/ţ → a/a/i/s/s/t/t).
    old/stale).
 6. **Price <= 1500 lei.** From `price.regularPrice.value`. Ads with no
    regular price (`free`/`exchange` only) are EXCLUDED.
+7. **Private seller only.** Uses the ad's structured `isBusiness` field
+   directly (not a text heuristic — OLX marks shop/dealer listings
+   explicitly). `isBusiness: true` → EXCLUDE. Motivation: the user
+   wants "super ocazii" from private sellers, not dealer stock at
+   dealer margins.
 
-Rules 1–6 are all AND'd together (a listing must pass every rule).
+Rules 1–7 are all AND'd together (a listing must pass every rule).
 
 ## Scoring (`scorer.py`)
 

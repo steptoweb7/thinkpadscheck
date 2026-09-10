@@ -33,6 +33,7 @@ def parse_listings(html: str) -> list[dict]:
                 "url": ad.get("url", ""),
                 "location": (ad.get("location") or {}).get("pathName", ""),
                 "created_time": ad.get("createdTime", ""),
+                "is_business": bool(ad.get("isBusiness", False)),
                 "params": params,
             }
         )

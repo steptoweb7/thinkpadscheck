@@ -72,6 +72,9 @@ def storage_ok(params: dict) -> bool:
 
 
 def passes_hard_filters(listing: dict, config: dict) -> bool:
+    if listing.get("is_business"):
+        return False
+
     price = listing.get("price")
     if price is None or price > config.get("max_price", 1500):
         return False

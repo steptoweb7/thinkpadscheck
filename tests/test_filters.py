@@ -8,6 +8,7 @@ def qualifying_listing(**overrides):
         "title": "Laptop Lenovo ThinkPad T14 i5-1135G7",
         "description": "16GB RAM DDR4, SSD 512GB, stare impecabila",
         "price": 1200,
+        "is_business": False,
         "params": {
             "tip_stocare": "SSD",
             "capacitate_memorie_ram": "> 16 GB",
@@ -57,6 +58,11 @@ def test_excludes_hdd_only():
 
 def test_excludes_over_price():
     listing = qualifying_listing(price=1600)
+    assert passes_hard_filters(listing, CONFIG) is False
+
+
+def test_excludes_business_seller():
+    listing = qualifying_listing(is_business=True)
     assert passes_hard_filters(listing, CONFIG) is False
 
 
