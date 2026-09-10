@@ -21,6 +21,7 @@ def test_fetch_html_returns_response_text():
         assert "Accept" in headers
         assert "Accept-Language" in headers
         assert "Referer" in headers
+        assert kwargs["impersonate"] == "chrome124"
 
 
 def test_fetch_html_raises_on_http_error():
