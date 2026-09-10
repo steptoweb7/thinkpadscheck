@@ -18,6 +18,7 @@ ssd_deal:
   filter_urls:
     - "https://www.olx.ro/electronice-si-electrocasnice/laptop-calculator-gaming/laptopuri/?search%5Border%5D=created_at%3Adesc"
     - "https://www.olx.ro/electronice-si-electrocasnice/laptop-calculator-gaming/sisteme-pc-si-gaming/?search%5Border%5D=created_at%3Adesc"
+    - "https://www.olx.ro/electronice-si-electrocasnice/componente-laptop-pc/hard-disk-uri/?search%5Border%5D=created_at%3Adesc"
   max_price: 800
   min_ssd_gb: 512
 

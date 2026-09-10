@@ -162,6 +162,21 @@ def test_extract_ssd_capacity_gb_takes_largest_mention():
     assert extract_ssd_capacity_gb("SSD 256GB + slot liber pentru inca un SSD 1TB") == 1000
 
 
+def test_extract_ssd_capacity_gb_handles_decimal_terabytes():
+    """Real bug: enterprise SSD listings commonly say '1.92TB'; the old
+    regex only captured the digits after the decimal point, reading it as
+    92000GB."""
+    assert extract_ssd_capacity_gb("Intel SSD DC S4610 1.92TB SATA enterprise") == 1920
+
+
+def test_extract_ssd_capacity_gb_ignores_implausibly_large_numbers():
+    """Real bug: an unrelated large number in the description (a serial
+    number, a price, whatever) immediately followed by 'gb'/'tb' text
+    elsewhere produced a multi-million-GB 'capacity'. Cap at a generous
+    but sane ceiling for a consumer/enterprise drive."""
+    assert extract_ssd_capacity_gb("SSD 512GB, cod produs 1139000gb-serial-xyz") == 512
+
+
 def test_ssd_deal_qualifying_listing_passes():
     assert passes_ssd_deal_filter(ssd_deal_listing(), SSD_CONFIG) is True
 
@@ -184,6 +199,29 @@ def test_ssd_deal_excludes_hdd_only():
 def test_ssd_deal_accepts_hdd_plus_ssd_combo():
     listing = ssd_deal_listing(params={"tip_stocare": "HDD+SSD"})
     assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
+
+
+def test_ssd_deal_accepts_standalone_drive_listing_schema():
+    """Standalone SSD/HDD listings (sold as a bare component, not inside a
+    laptop/PC) use a different OLX category with a different params schema:
+    "tip" (SSD/HDD) instead of "tip_stocare", no capacity field at all."""
+    listing = ssd_deal_listing(
+        title="SSD Kingston A400, 960GB, 2.5\", SATA III - Nou Sigilat",
+        description="SSD nou, sigilat, garantie.",
+        price=320,
+        params={"state": "Nou", "tip": "SSD"},
+    )
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
+
+
+def test_ssd_deal_excludes_standalone_hdd_listing():
+    listing = ssd_deal_listing(
+        title="Hard disk 4TB Seagate",
+        description="HDD extern, functioneaza perfect.",
+        price=400,
+        params={"state": "Utilizat", "tip": "HDD"},
+    )
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
 
 
 def test_ssd_deal_excludes_small_ssd():

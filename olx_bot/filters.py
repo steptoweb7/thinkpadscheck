@@ -35,11 +35,8 @@ _CPU_GEN_PATTERNS = [
     r"\bcore ultra [3579]\b",
 ]
 
-_SSD_CAPACITY_PATTERNS = [
-    r"ssd[^0-9]{0,20}?(\d+)\s*(gb|tb)\b",
-    r"(\d+)\s*(gb|tb)[^a-z0-9]{0,15}ssd",
-    r"(?:nvme|m\.2)[^0-9]{0,15}?(\d+)\s*(gb|tb)\b",
-]
+_CAPACITY_PATTERN = r"\b(\d+(?:\.\d+)?)\s*(gb|tb)\b"
+_MAX_PLAUSIBLE_CAPACITY_GB = 8000  # 8TB ceiling; larger matches are parsing noise, not real drives
 
 _DIACRITIC_MAP = str.maketrans("ăâîșşțţ", "aaisstt")
 
@@ -77,22 +74,34 @@ def storage_ok(params: dict) -> bool:
     return params.get("tip_stocare") in ("SSD", "HDD+SSD")
 
 
+def is_ssd(params: dict) -> bool:
+    """SSD signal across two different OLX category schemas: laptops/PCs
+    use "tip_stocare" (SSD/HDD/HDD+SSD); the standalone-drive category
+    ("Componente Laptop-PC > Hard disk-uri") uses "tip" (SSD/HDD) instead,
+    since a bare drive obviously isn't "half SSD, half HDD"."""
+    return storage_ok(params) or params.get("tip") == "SSD"
+
+
 def extract_ssd_capacity_gb(text: str) -> int | None:
     """Best-effort SSD capacity extracted from free text (title/description).
 
-    No structured OLX field carries storage capacity, only storage TYPE
-    (tip_stocare). Used only for the SSD-deal rule, which is explicitly a
+    No structured OLX field reliably carries storage capacity across every
+    category this rule scans, only storage TYPE. Doesn't require the
+    number to sit next to the word "ssd" — real titles put a model number
+    (e.g. "Kingston A400") between them, which broke an earlier version of
+    this regex. Used only for the SSD-deal rule, which is explicitly a
     loose "any specs, just a cheap real SSD" scan, not the strict
     business-laptop rule — reading the description here is an accepted
-    trade-off for that rule's purpose.
+    trade-off for that rule's purpose. Takes the largest GB/TB mention,
+    which in practice is the drive's capacity, not RAM (SSD capacities run
+    much larger than RAM in nearly every real listing).
     """
     normalized = normalize_text(text)
     capacities = []
-    for pattern in _SSD_CAPACITY_PATTERNS:
-        for match in re.finditer(pattern, normalized):
-            value_str, unit = match.group(1), match.group(2)
-            value = int(value_str) * 1000 if unit == "tb" else int(value_str)
-            capacities.append(value)
+    for value_str, unit in re.findall(_CAPACITY_PATTERN, normalized):
+        value = float(value_str) * 1000 if unit == "tb" else float(value_str)
+        if value <= _MAX_PLAUSIBLE_CAPACITY_GB:
+            capacities.append(round(value))
     return max(capacities) if capacities else None
 
 
@@ -106,7 +115,7 @@ def passes_ssd_deal_filter(listing: dict, config: dict) -> bool:
     if price is None or price > ssd_config.get("max_price", 800):
         return False
 
-    if not storage_ok(listing.get("params", {})):
+    if not is_ssd(listing.get("params", {})):
         return False
 
     text = f"{listing.get('title', '')} {listing.get('description', '')}"

@@ -202,22 +202,37 @@ under both rules without colliding.
 
 A second, independent alert rule, added after the first version shipped:
 ignore CPU/RAM/model entirely and alert on ANY listing (laptop, desktop,
-mini PC) with a real SSD of at least a minimum capacity, at a throwaway
-price — on the theory that some sellers don't realize how much their SSD
-alone is currently worth and underprice the whole system.
+mini PC, or a bare drive sold as a component) with a real SSD of at
+least a minimum capacity, at a throwaway price — on the theory that
+some sellers don't realize how much their SSD alone is currently worth
+and underprice the whole system (or the drive itself).
 
-Scans two categories (not just laptops): `laptopuri` and
-`sisteme-pc-si-gaming` (desktops/mini-PCs land here on OLX).
+Scans three categories: `laptopuri`, `sisteme-pc-si-gaming`
+(desktops/mini-PCs land here on OLX), and
+`componente-laptop-pc/hard-disk-uri` (bare SSD/HDD drives sold as
+components, not inside a system — added after the user asked whether
+standalone drives were covered; they weren't, until this category was
+added). That third category uses a DIFFERENT params schema than the
+other two: `tip` (`"SSD"`/`"HDD"`) instead of `tip_stocare`, since a
+bare drive can't be "half SSD, half HDD" — `filters.is_ssd()` checks
+both schemas.
 
 Rules (all AND'd):
 1. Private seller only (`is_business` false) — same as the main rule.
-2. `tip_stocare` param is `"SSD"` or `"HDD+SSD"` — not `"HDD"` alone.
-3. SSD capacity >= `min_ssd_gb` (default 512GB), extracted via regex
-   from `title + " " + description` — no structured capacity field
-   exists on OLX. Unlike the main rule, this one DOES read the
-   description: false-positive risk is accepted here because the rule
-   itself is explicitly a loose "any specs" scan, not the precision-
-   focused business-laptop rule.
+2. Is an SSD: `tip_stocare` param is `"SSD"` or `"HDD+SSD"` (system
+   listings), OR `tip` param is `"SSD"` (standalone-drive listings) —
+   not `"HDD"` alone in either schema.
+3. SSD capacity >= `min_ssd_gb` (default 512GB), extracted from
+   `title + " " + description` by taking the largest GB/TB number
+   mentioned — no structured capacity field is used since the
+   standalone-drive category's `capacitate` param is bucketed
+   (`"< 1 TB"`, `"1 - 2 TB"`, etc.) and too coarse. Doesn't require the
+   number to sit next to the word "ssd": real titles often put a model
+   number in between (e.g. "SSD Kingston A400, 960GB"), which broke an
+   earlier, stricter version of this regex. Unlike the main rule, this
+   one DOES read the description: false-positive risk is accepted here
+   because the rule itself is explicitly a loose "any specs" scan, not
+   the precision-focused business-laptop rule.
 4. Price <= `max_price` (default 800 lei, user-configured lower per
    their own price-sensitivity — this is deliberately more aggressive
    than the business rule's 1500 lei cap).
