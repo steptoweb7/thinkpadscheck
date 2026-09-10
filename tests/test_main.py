@@ -50,7 +50,7 @@ def _write_config(tmp_path):
         f"""
 filter_url: "https://example.com/search"
 max_price: 1500
-db_path: "{tmp_path / 'seen.db'}"
+db_path: "{(tmp_path / 'seen.db').as_posix()}"
 reference_prices:
   "ThinkPad T14": 2200
 gmail:
@@ -208,7 +208,7 @@ def _write_config_with_ssd_deal(tmp_path):
         f"""
 filter_url: "https://example.com/search"
 max_price: 1500
-db_path: "{tmp_path / 'seen.db'}"
+db_path: "{(tmp_path / 'seen.db').as_posix()}"
 reference_prices:
   "ThinkPad T14": 2200
 ssd_deal:
