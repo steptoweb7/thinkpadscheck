@@ -16,7 +16,11 @@ def test_fetch_html_returns_response_text():
         mock_get.assert_called_once()
         _, kwargs = mock_get.call_args
         assert kwargs["timeout"] == 15
-        assert "User-Agent" in kwargs["headers"]
+        headers = kwargs["headers"]
+        assert "User-Agent" in headers
+        assert "Accept" in headers
+        assert "Accept-Language" in headers
+        assert "Referer" in headers
 
 
 def test_fetch_html_raises_on_http_error():
