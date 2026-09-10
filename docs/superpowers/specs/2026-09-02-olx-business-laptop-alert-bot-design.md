@@ -21,7 +21,9 @@ In scope:
 - Scheduled execution via Windows Task Scheduler (hourly).
 
 Out of scope (deferred, not building now):
-- Multi-category / multi-site support (only OLX laptops).
+- Multi-site support (OLX only). Multi-category IS in scope for the
+  SSD-deal rule (see below) — it scans laptops + desktop/mini-PC
+  categories — but the main business-laptop rule stays laptops-only.
 - Learning market prices automatically from scraped history (may be
   a future iteration once the manual reference table proves useful).
 - Web UI / dashboard. This is a headless script + email only.
@@ -190,6 +192,40 @@ CREATE TABLE seen_listings (
 
 Before scoring, skip any listing whose `id` already exists in the
 table. After a successful email send, insert the row.
+
+The two alert rules (business-laptop deals and the SSD-deal rule below)
+share this one table but namespace their keys (`biz:<id>` vs `ssd:<id>`)
+so the same ad ID can independently qualify — and get deduplicated —
+under both rules without colliding.
+
+## Second rule: SSD-deal alert (`passes_ssd_deal_filter`, any specs)
+
+A second, independent alert rule, added after the first version shipped:
+ignore CPU/RAM/model entirely and alert on ANY listing (laptop, desktop,
+mini PC) with a real SSD of at least a minimum capacity, at a throwaway
+price — on the theory that some sellers don't realize how much their SSD
+alone is currently worth and underprice the whole system.
+
+Scans two categories (not just laptops): `laptopuri` and
+`sisteme-pc-si-gaming` (desktops/mini-PCs land here on OLX).
+
+Rules (all AND'd):
+1. Private seller only (`is_business` false) — same as the main rule.
+2. `tip_stocare` param is `"SSD"` or `"HDD+SSD"` — not `"HDD"` alone.
+3. SSD capacity >= `min_ssd_gb` (default 512GB), extracted via regex
+   from `title + " " + description` — no structured capacity field
+   exists on OLX. Unlike the main rule, this one DOES read the
+   description: false-positive risk is accepted here because the rule
+   itself is explicitly a loose "any specs" scan, not the precision-
+   focused business-laptop rule.
+4. Price <= `max_price` (default 800 lei, user-configured lower per
+   their own price-sensitivity — this is deliberately more aggressive
+   than the business rule's 1500 lei cap).
+
+No scoring step — "cheap enough" is binary here (price cap), not a %
+below a reference. Notification uses a distinct email subject
+(`[OLX SSD Deal]`) so it's visually distinct from `[OLX Deal]` business
+alerts in the inbox.
 
 ## Notification (`notifier.py`)
 

@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from olx_bot.notifier import build_email, send_email
+from olx_bot.notifier import build_email, build_ssd_deal_email, send_email, send_ssd_deal_email
 
 LISTING = {
     "title": "Laptop Lenovo ThinkPad T480",
@@ -63,3 +63,24 @@ def test_build_email_with_romanian_diacritics():
     assert "Asus VivoBook cu înregistrare și ștergere sigură" in body
     assert "Brașov" in body
     assert listing_with_diacritics["url"] in body
+
+
+def test_build_ssd_deal_email_subject_and_body():
+    msg = build_ssd_deal_email(LISTING, 512)
+    assert "512GB" in msg["Subject"]
+    assert "SSD" in msg["Subject"]
+    assert str(LISTING["price"]) in msg["Subject"]
+    body = msg.get_payload(decode=True).decode("utf-8")
+    assert LISTING["url"] in body
+    assert "512" in body
+
+
+def test_send_ssd_deal_email_uses_smtp_with_starttls():
+    with patch("olx_bot.notifier.smtplib.SMTP") as mock_smtp_cls:
+        smtp_instance = mock_smtp_cls.return_value.__enter__.return_value
+        send_ssd_deal_email(LISTING, 1000, GMAIL_CONFIG)
+
+        mock_smtp_cls.assert_called_once_with("smtp.gmail.com", 587, timeout=15)
+        smtp_instance.starttls.assert_called_once()
+        smtp_instance.login.assert_called_once_with("sender@gmail.com", "app-pass")
+        assert smtp_instance.sendmail.call_count == 1

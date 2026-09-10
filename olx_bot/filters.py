@@ -35,6 +35,12 @@ _CPU_GEN_PATTERNS = [
     r"\bcore ultra [3579]\b",
 ]
 
+_SSD_CAPACITY_PATTERNS = [
+    r"ssd[^0-9]{0,20}?(\d+)\s*(gb|tb)\b",
+    r"(\d+)\s*(gb|tb)[^a-z0-9]{0,15}ssd",
+    r"(?:nvme|m\.2)[^0-9]{0,15}?(\d+)\s*(gb|tb)\b",
+]
+
 _DIACRITIC_MAP = str.maketrans("ăâîșşțţ", "aaisstt")
 
 
@@ -69,6 +75,46 @@ def cpu_gen_ok(text: str) -> bool:
 
 def storage_ok(params: dict) -> bool:
     return params.get("tip_stocare") in ("SSD", "HDD+SSD")
+
+
+def extract_ssd_capacity_gb(text: str) -> int | None:
+    """Best-effort SSD capacity extracted from free text (title/description).
+
+    No structured OLX field carries storage capacity, only storage TYPE
+    (tip_stocare). Used only for the SSD-deal rule, which is explicitly a
+    loose "any specs, just a cheap real SSD" scan, not the strict
+    business-laptop rule — reading the description here is an accepted
+    trade-off for that rule's purpose.
+    """
+    normalized = normalize_text(text)
+    capacities = []
+    for pattern in _SSD_CAPACITY_PATTERNS:
+        for match in re.finditer(pattern, normalized):
+            value_str, unit = match.group(1), match.group(2)
+            value = int(value_str) * 1000 if unit == "tb" else int(value_str)
+            capacities.append(value)
+    return max(capacities) if capacities else None
+
+
+def passes_ssd_deal_filter(listing: dict, config: dict) -> bool:
+    if listing.get("is_business"):
+        return False
+
+    ssd_config = config.get("ssd_deal", {})
+
+    price = listing.get("price")
+    if price is None or price > ssd_config.get("max_price", 800):
+        return False
+
+    if not storage_ok(listing.get("params", {})):
+        return False
+
+    text = f"{listing.get('title', '')} {listing.get('description', '')}"
+    capacity = extract_ssd_capacity_gb(text)
+    if capacity is None or capacity < ssd_config.get("min_ssd_gb", 512):
+        return False
+
+    return True
 
 
 def passes_hard_filters(listing: dict, config: dict) -> bool:

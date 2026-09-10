@@ -5,8 +5,8 @@ import os
 
 from olx_bot.config import load_config
 from olx_bot.db import init_db, is_seen, mark_seen
-from olx_bot.filters import passes_hard_filters
-from olx_bot.notifier import send_email
+from olx_bot.filters import extract_ssd_capacity_gb, passes_hard_filters, passes_ssd_deal_filter
+from olx_bot.notifier import send_email, send_ssd_deal_email
 from olx_bot.parser import parse_listings
 from olx_bot.scorer import compute_score
 from olx_bot.scraper import fetch_html
@@ -63,10 +63,17 @@ def run(config_path: str = "config.yaml") -> None:
     )
 
     config = load_config(config_path)
+    ssd_deal_config = config.get("ssd_deal", {})
+    ssd_deal_urls = ssd_deal_config.get("filter_urls", [])
 
     try:
         html = fetch_html(config["filter_url"])
         listings = parse_listings(html)
+
+        ssd_deal_listings = []
+        for ssd_url in ssd_deal_urls:
+            ssd_html = fetch_html(ssd_url)
+            ssd_deal_listings.extend(parse_listings(ssd_html))
     except Exception:
         logging.exception("Scrape/parse failed")
         failures = _read_failure_count() + 1
@@ -87,7 +94,7 @@ def run(config_path: str = "config.yaml") -> None:
                 _mark_down_alert_sent()
         return
 
-    logging.info("Fetched %d listings", len(listings))
+    logging.info("Fetched %d listings, %d ssd-deal listings", len(listings), len(ssd_deal_listings))
     if len(listings) == 0:
         logging.warning(
             "Parsed 0 listings - check filter_url or whether OLX changed page structure"
@@ -100,8 +107,9 @@ def run(config_path: str = "config.yaml") -> None:
     sent_count = 0
     try:
         for listing in listings:
+            db_key = f"biz:{listing['id']}"
             try:
-                if is_seen(conn, listing["id"]):
+                if is_seen(conn, db_key):
                     continue
                 if not passes_hard_filters(listing, config):
                     continue
@@ -116,7 +124,7 @@ def run(config_path: str = "config.yaml") -> None:
                 sent_count += 1
                 mark_seen(
                     conn,
-                    listing["id"],
+                    db_key,
                     listing["title"],
                     listing["price"],
                     result["score_pct"],
@@ -124,10 +132,44 @@ def run(config_path: str = "config.yaml") -> None:
                 )
             except Exception:
                 logging.exception("Failed processing listing %s", listing.get("id"))
+
+        seen_ssd_ids_this_run = set()
+        for listing in ssd_deal_listings:
+            ad_id = listing["id"]
+            if ad_id in seen_ssd_ids_this_run:
+                continue
+            seen_ssd_ids_this_run.add(ad_id)
+
+            db_key = f"ssd:{ad_id}"
+            try:
+                if is_seen(conn, db_key):
+                    continue
+                if not passes_ssd_deal_filter(listing, config):
+                    continue
+
+                capacity_gb = extract_ssd_capacity_gb(
+                    f"{listing['title']} {listing['description']}"
+                )
+                send_ssd_deal_email(listing, capacity_gb, config["gmail"])
+                sent_count += 1
+                mark_seen(
+                    conn,
+                    db_key,
+                    listing["title"],
+                    listing["price"],
+                    None,
+                    datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                )
+            except Exception:
+                logging.exception("Failed processing ssd-deal listing %s", ad_id)
     finally:
         conn.close()
 
-    logging.info("Processed %d listings, %d new alerts sent", len(listings), sent_count)
+    logging.info(
+        "Processed %d listings, %d new alerts sent",
+        len(listings) + len(ssd_deal_listings),
+        sent_count,
+    )
 
 
 if __name__ == "__main__":

@@ -11,6 +11,16 @@ reference_prices:
   "Latitude 5490": 1600
   "EliteBook 840": 1700
 
+# Second, independent alert rule: ignores CPU/RAM/model entirely — just a
+# real SSD (not HDD) of at least min_ssd_gb, at a throwaway price. Catches
+# sellers who don't realize how much their SSD alone is worth right now.
+ssd_deal:
+  filter_urls:
+    - "https://www.olx.ro/electronice-si-electrocasnice/laptop-calculator-gaming/laptopuri/?search%5Border%5D=created_at%3Adesc"
+    - "https://www.olx.ro/electronice-si-electrocasnice/laptop-calculator-gaming/sisteme-pc-si-gaming/?search%5Border%5D=created_at%3Adesc"
+  max_price: 800
+  min_ssd_gb: 512
+
 gmail:
   address: "your_email@gmail.com"
   app_password: "your_16_char_app_password"
