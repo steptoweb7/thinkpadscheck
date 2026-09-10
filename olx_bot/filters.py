@@ -82,6 +82,45 @@ def is_ssd(params: dict) -> bool:
     return storage_ok(params) or params.get("tip") == "SSD"
 
 
+def is_standalone_drive(params: dict) -> bool:
+    """True for a bare drive listing (params schema uses "tip"), false
+    for a laptop/PC-system listing (params schema uses "tip_stocare")."""
+    return "tip" in params and "tip_stocare" not in params
+
+
+def standalone_drive_price_threshold(capacity_gb: int, tiers: dict) -> float:
+    """Max price for a standalone drive of this capacity, from a
+    capacity->price tier table (e.g. {512: 150, 1000: 200, 2000: 300}).
+
+    A bare drive isn't the "seller doesn't know the system's SSD is
+    valuable" arbitrage the rest of this rule targets — the seller is
+    selling exactly the drive, at whatever the market already prices it
+    at — so the bar is a much lower, capacity-scaled ceiling instead of
+    the flat ssd_deal.max_price used for laptops/PCs.
+
+    Uses the tier at or below the drive's capacity. Above the largest
+    configured tier, extrapolates linearly using the price-per-GB rate
+    between the two largest tiers, rather than capping forever at the
+    top tier's price (which would wrongly reject a genuinely cheap
+    high-capacity drive) or leaving larger drives unthrottled.
+    """
+    sorted_tiers = sorted((int(gb), price) for gb, price in tiers.items())
+    threshold = sorted_tiers[0][1]
+    for gb, price in sorted_tiers:
+        if capacity_gb >= gb:
+            threshold = price
+        else:
+            break
+
+    largest_gb, largest_price = sorted_tiers[-1]
+    if capacity_gb > largest_gb and len(sorted_tiers) >= 2:
+        second_gb, second_price = sorted_tiers[-2]
+        rate_per_gb = (largest_price - second_price) / (largest_gb - second_gb)
+        threshold = largest_price + (capacity_gb - largest_gb) * rate_per_gb
+
+    return threshold
+
+
 def extract_ssd_capacity_gb(text: str) -> int | None:
     """Best-effort SSD capacity extracted from free text (title/description).
 
@@ -110,12 +149,13 @@ def passes_ssd_deal_filter(listing: dict, config: dict) -> bool:
         return False
 
     ssd_config = config.get("ssd_deal", {})
+    params = listing.get("params", {})
 
-    price = listing.get("price")
-    if price is None or price > ssd_config.get("max_price", 800):
+    if not is_ssd(params):
         return False
 
-    if not is_ssd(listing.get("params", {})):
+    price = listing.get("price")
+    if price is None:
         return False
 
     text = f"{listing.get('title', '')} {listing.get('description', '')}"
@@ -123,7 +163,13 @@ def passes_ssd_deal_filter(listing: dict, config: dict) -> bool:
     if capacity is None or capacity < ssd_config.get("min_ssd_gb", 512):
         return False
 
-    return True
+    if is_standalone_drive(params):
+        tiers = ssd_config.get("standalone_drive_max_price_by_gb")
+        max_price = standalone_drive_price_threshold(capacity, tiers) if tiers else ssd_config.get("max_price", 800)
+    else:
+        max_price = ssd_config.get("max_price", 800)
+
+    return price <= max_price
 
 
 def passes_hard_filters(listing: dict, config: dict) -> bool:

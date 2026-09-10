@@ -21,6 +21,16 @@ ssd_deal:
     - "https://www.olx.ro/electronice-si-electrocasnice/componente-laptop-pc/hard-disk-uri/?search%5Border%5D=created_at%3Adesc"
   max_price: 800
   min_ssd_gb: 512
+  # Standalone drives (sold as a bare component, not inside a laptop/PC)
+  # use THIS tiered pricing instead of max_price above -- a bare drive
+  # isn't "seller doesn't realize the SSD is valuable" arbitrage, they're
+  # selling exactly the drive at market rate, so the bar is much lower
+  # and scales with capacity. Above the largest tier, price scales
+  # linearly using the rate between the two largest tiers.
+  standalone_drive_max_price_by_gb:
+    512: 150
+    1000: 200
+    2000: 300
 
 gmail:
   address: "your_email@gmail.com"

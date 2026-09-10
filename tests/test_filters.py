@@ -5,7 +5,25 @@ from olx_bot.filters import (
 )
 
 CONFIG = {"max_price": 1500}
-SSD_CONFIG = {"ssd_deal": {"max_price": 800, "min_ssd_gb": 512}}
+SSD_CONFIG = {
+    "ssd_deal": {
+        "max_price": 800,
+        "min_ssd_gb": 512,
+        "standalone_drive_max_price_by_gb": {512: 150, 1000: 200, 2000: 300},
+    }
+}
+
+
+def standalone_drive_listing(**overrides):
+    listing = {
+        "title": "SSD Samsung 512GB SATA",
+        "description": "SSD nou, sigilat",
+        "price": 150,
+        "is_business": False,
+        "params": {"state": "Nou", "tip": "SSD"},
+    }
+    listing.update(overrides)
+    return listing
 
 
 def ssd_deal_listing(**overrides):
@@ -208,7 +226,7 @@ def test_ssd_deal_accepts_standalone_drive_listing_schema():
     listing = ssd_deal_listing(
         title="SSD Kingston A400, 960GB, 2.5\", SATA III - Nou Sigilat",
         description="SSD nou, sigilat, garantie.",
-        price=320,
+        price=140,
         params={"state": "Nou", "tip": "SSD"},
     )
     assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
@@ -222,6 +240,65 @@ def test_ssd_deal_excludes_standalone_hdd_listing():
         params={"state": "Utilizat", "tip": "HDD"},
     )
     assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
+
+
+# --- standalone-drive rule uses tiered pricing by capacity, not the flat
+# max_price used for laptops/PCs: a bare drive isn't "arbitrage" (the
+# seller knows exactly what they're selling), so the price bar is much
+# lower and scales with how much storage you're actually getting.
+
+
+def test_standalone_drive_512gb_tier_passes_under_threshold():
+    listing = standalone_drive_listing(title="SSD Samsung 512GB SATA", price=149)
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
+
+
+def test_standalone_drive_512gb_tier_fails_over_threshold():
+    listing = standalone_drive_listing(title="SSD Samsung 512GB SATA", price=151)
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
+
+
+def test_standalone_drive_1tb_tier_passes_under_threshold():
+    listing = standalone_drive_listing(title="SSD Samsung 1TB NVMe", price=199)
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
+
+
+def test_standalone_drive_1tb_tier_fails_over_threshold():
+    listing = standalone_drive_listing(title="SSD Samsung 1TB NVMe", price=201)
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
+
+
+def test_standalone_drive_2tb_tier_passes_under_threshold():
+    listing = standalone_drive_listing(title="SSD Samsung 2TB NVMe", price=299)
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
+
+
+def test_standalone_drive_2tb_tier_fails_over_threshold():
+    listing = standalone_drive_listing(title="SSD Samsung 2TB NVMe", price=301)
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
+
+
+def test_standalone_drive_extrapolates_threshold_beyond_largest_tier():
+    """No 4TB tier is configured; extrapolate linearly from the rate
+    between the two largest configured tiers (1TB->2TB: +100 lei per +1000GB,
+    i.e. 0.1 lei/GB), so 4TB (2000GB past the 2TB tier) gets 300 + 200 = 500."""
+    listing = standalone_drive_listing(title="SSD Samsung 4TB NVMe", price=499)
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
+
+    listing = standalone_drive_listing(title="SSD Samsung 4TB NVMe", price=501)
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
+
+
+def test_laptop_ssd_deal_still_uses_flat_max_price_not_tiers():
+    """The tiered pricing is standalone-drive-only. A laptop/PC listing
+    with a huge SSD should still be judged against the flat ssd_deal
+    max_price (800), not the much stricter standalone tiers."""
+    listing = ssd_deal_listing(
+        title="Laptop HP i5, 2TB SSD",
+        params={"tip_stocare": "SSD"},
+        price=750,
+    )
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
 
 
 def test_ssd_deal_excludes_small_ssd():

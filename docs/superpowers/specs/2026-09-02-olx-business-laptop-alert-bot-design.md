@@ -233,11 +233,21 @@ Rules (all AND'd):
    one DOES read the description: false-positive risk is accepted here
    because the rule itself is explicitly a loose "any specs" scan, not
    the precision-focused business-laptop rule.
-4. Price <= `max_price` (default 800 lei, user-configured lower per
-   their own price-sensitivity — this is deliberately more aggressive
-   than the business rule's 1500 lei cap).
+4. Price threshold, which DIFFERS by listing type:
+   - Laptop/PC-system listings: flat `max_price` (default 800 lei).
+   - Standalone-drive listings: NOT the flat `max_price` — a bare drive
+     isn't the "seller doesn't realize the SSD is valuable" arbitrage
+     this rule targets elsewhere, the seller is selling exactly the
+     drive at whatever the market already prices it at, so 800 lei
+     would just be "normal price", not a deal. Instead uses
+     `standalone_drive_max_price_by_gb`, a capacity→price tier table
+     (default `{512: 150, 1000: 200, 2000: 300}`): the threshold is the
+     tier at or below the drive's capacity, and above the largest
+     configured tier it extrapolates linearly using the price-per-GB
+     rate between the two largest tiers (`filters.standalone_drive_price_threshold`)
+     rather than capping forever at the top tier's price.
 
-No scoring step — "cheap enough" is binary here (price cap), not a %
+No scoring step — "cheap enough" is binary here (price threshold), not a %
 below a reference. Notification uses a distinct email subject
 (`[OLX SSD Deal]`) so it's visually distinct from `[OLX Deal]` business
 alerts in the inbox.
