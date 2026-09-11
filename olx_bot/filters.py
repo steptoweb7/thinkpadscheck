@@ -37,6 +37,7 @@ _CPU_GEN_PATTERNS = [
 
 _CAPACITY_PATTERN = r"\b(\d+(?:\.\d+)?)\s*(gb|tb)\b"
 _MAX_PLAUSIBLE_CAPACITY_GB = 8000  # 8TB ceiling; larger matches are parsing noise, not real drives
+_STORAGE_KEYWORD_PATTERN = re.compile(r"\b(ssd|hdd)\b")
 
 _DIACRITIC_MAP = str.maketrans("ăâîșşțţ", "aaisstt")
 
@@ -131,16 +132,39 @@ def extract_ssd_capacity_gb(text: str) -> int | None:
     this regex. Used only for the SSD-deal rule, which is explicitly a
     loose "any specs, just a cheap real SSD" scan, not the strict
     business-laptop rule — reading the description here is an accepted
-    trade-off for that rule's purpose. Takes the largest GB/TB mention,
-    which in practice is the drive's capacity, not RAM (SSD capacities run
-    much larger than RAM in nearly every real listing).
+    trade-off for that rule's purpose.
+
+    Attributes each number to its NEAREST "ssd"/"hdd" keyword occurrence
+    (by character distance) and drops numbers nearest an "hdd" mention —
+    a real bug: a server listing with a 32GB boot SSD and a separate 3TB
+    HDD for storage was reporting the HDD's 3TB as the SSD capacity,
+    because a plain "take the largest GB/TB number in the text" doesn't
+    know which drive a number belongs to. A number with no nearby
+    keyword at all still counts (preserves matching for plain listings
+    that never say "hdd" anywhere).
     """
     normalized = normalize_text(text)
+    keyword_positions = [
+        (m.start(), m.group(1)) for m in _STORAGE_KEYWORD_PATTERN.finditer(normalized)
+    ]
     capacities = []
-    for value_str, unit in re.findall(_CAPACITY_PATTERN, normalized):
+    for match in re.finditer(_CAPACITY_PATTERN, normalized):
+        value_str, unit = match.group(1), match.group(2)
         value = float(value_str) * 1000 if unit == "tb" else float(value_str)
-        if value <= _MAX_PLAUSIBLE_CAPACITY_GB:
-            capacities.append(round(value))
+        if value > _MAX_PLAUSIBLE_CAPACITY_GB:
+            continue
+
+        nearest_keyword = None
+        nearest_distance = None
+        for pos, keyword in keyword_positions:
+            distance = abs(pos - match.start())
+            if nearest_distance is None or distance < nearest_distance:
+                nearest_distance = distance
+                nearest_keyword = keyword
+        if nearest_keyword == "hdd":
+            continue
+
+        capacities.append(round(value))
     return max(capacities) if capacities else None
 
 

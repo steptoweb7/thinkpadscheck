@@ -195,6 +195,21 @@ def test_extract_ssd_capacity_gb_ignores_implausibly_large_numbers():
     assert extract_ssd_capacity_gb("SSD 512GB, cod produs 1139000gb-serial-xyz") == 512
 
 
+def test_extract_ssd_capacity_gb_ignores_hdd_capacity_in_mixed_listing():
+    """Real bug: a server listing with a tiny boot SSD and a large HDD for
+    storage ("SSD Corsair 32 GB ... HDD 3 TB WD") reported the HDD's 3TB
+    as if it were the SSD capacity, because the old logic just took the
+    largest GB/TB number in the whole text regardless of which drive it
+    described. Must attribute each number to its NEAREST ssd/hdd keyword
+    and ignore numbers that belong to an HDD mention."""
+    text = (
+        "server Dell Poweredge T20, procesor Intel Pentium G3220, "
+        "SSD Corsair 32 GB pentru sistem de operare, "
+        "HDD 3 TB WD (NASware) pentru stocare"
+    )
+    assert extract_ssd_capacity_gb(text) == 32
+
+
 def test_ssd_deal_qualifying_listing_passes():
     assert passes_ssd_deal_filter(ssd_deal_listing(), SSD_CONFIG) is True
 
