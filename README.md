@@ -26,6 +26,18 @@ score for each new match. Design: see
    ```
    Check `bot.log` for errors, and confirm `seen_listings.db` was created.
 
+## Alert history (`alerts_log.csv`)
+
+Every alert actually emailed (both rules) also gets appended as a row to
+`alerts_log.csv` in the project root — a plain, append-only CSV you can
+open in Excel/Notepad/whatever, independent of the SQLite dedup DB.
+Columns: `timestamp, rule, listing_id, title, price_lei, model,
+score_pct, ssd_capacity_gb, location, posted_at, url`. `rule` is either
+`business` or `ssd_deal`; whichever fields don't apply to that rule
+(e.g. `model`/`score_pct` for an `ssd_deal` row) are left blank. Never
+overwritten, never rewritten — only grows one row per new alert, so it
+doubles as a full historical log of every deal the bot ever caught.
+
 ## Running tests
 
 ```
@@ -38,14 +50,26 @@ python -m pytest -v
 2. General tab: name it "OLX Laptop Bot", select "Run whether user is
    logged on or not".
 3. Triggers tab: New → Daily, recur every 1 day, then check "Repeat
-   task every: 1 hour" for a duration of "Indefinitely".
+   task every: 1 hour" **for a duration of: "1 day"** (NOT
+   "Indefinitely" — real-world testing found "Indefinitely" can
+   silently stop re-firing after the first run on some Windows
+   installs; "1 day" duration self-renews every day via the Daily
+   trigger and has proven reliable).
 4. Actions tab: New → Action "Start a program" → Program/script:
-   full path to `run.bat` in this project folder.
-5. Conditions/Settings tabs: uncheck "Start the task only if the
-   computer is on AC power" if this is a laptop; leave defaults
-   otherwise.
+   full path to `run.bat` in this project folder, quoted if the path
+   contains spaces (e.g. `"C:\OLX Scrape\run.bat"`). Also set
+   "Start in" to the project folder.
+5. Conditions tab: **uncheck "Start the task only if the computer is
+   on AC power"** (and its sub-checkbox) — this is checked by default
+   and, on at least one real desktop mini PC, silently prevented every
+   automatic hourly run while manual "Run" still worked fine (manual
+   runs ignore Conditions entirely, which is what made this
+   confusing). Uncheck it even on a desktop, not just a laptop.
 6. Save, then right-click the task → Run, to confirm it works end to
-   end (check for a test email and a new `bot.log` entry).
+   end (check for a test email and a new `bot.log` entry). Then wait
+   for at least one real automatic (non-manual) run and confirm
+   `bot.log` gets a new entry on its own — a working manual Run does
+   NOT prove the automatic schedule works (see Conditions above).
 
 ## Troubleshooting
 

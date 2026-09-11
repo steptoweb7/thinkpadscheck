@@ -9,3 +9,4 @@ bot.log
 bot.log.*
 failure_count.txt
 down_alert_sent.txt
+alerts_log.csv

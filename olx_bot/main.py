@@ -4,6 +4,7 @@ import logging.handlers
 import os
 
 from olx_bot.config import load_config
+from olx_bot.csv_log import append_alert
 from olx_bot.db import init_db, is_seen, mark_seen
 from olx_bot.filters import extract_ssd_capacity_gb, passes_hard_filters, passes_ssd_deal_filter
 from olx_bot.notifier import send_email, send_ssd_deal_email
@@ -11,6 +12,7 @@ from olx_bot.parser import parse_listings
 from olx_bot.scorer import compute_score
 from olx_bot.scraper import fetch_html
 
+CSV_LOG_PATH = "alerts_log.csv"
 FAILURE_STATE_PATH = "failure_count.txt"
 DOWN_ALERT_SENT_PATH = "down_alert_sent.txt"
 FAILURE_ALERT_THRESHOLD = 3
@@ -122,13 +124,23 @@ def run(config_path: str = "config.yaml") -> None:
                 )
                 send_email(listing, result["model"], result["score_pct"], config["gmail"])
                 sent_count += 1
-                mark_seen(
-                    conn,
-                    db_key,
-                    listing["title"],
-                    listing["price"],
-                    result["score_pct"],
-                    datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                mark_seen(conn, db_key, listing["title"], listing["price"], result["score_pct"], now)
+                append_alert(
+                    config.get("csv_log_path", CSV_LOG_PATH),
+                    {
+                        "timestamp": now,
+                        "rule": "business",
+                        "listing_id": listing["id"],
+                        "title": listing["title"],
+                        "price_lei": listing["price"],
+                        "model": result["model"] or "",
+                        "score_pct": result["score_pct"] if result["score_pct"] is not None else "",
+                        "ssd_capacity_gb": "",
+                        "location": listing["location"],
+                        "posted_at": listing["created_time"],
+                        "url": listing["url"],
+                    },
                 )
             except Exception:
                 logging.exception("Failed processing listing %s", listing.get("id"))
@@ -152,13 +164,23 @@ def run(config_path: str = "config.yaml") -> None:
                 )
                 send_ssd_deal_email(listing, capacity_gb, config["gmail"])
                 sent_count += 1
-                mark_seen(
-                    conn,
-                    db_key,
-                    listing["title"],
-                    listing["price"],
-                    None,
-                    datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                mark_seen(conn, db_key, listing["title"], listing["price"], None, now)
+                append_alert(
+                    config.get("csv_log_path", CSV_LOG_PATH),
+                    {
+                        "timestamp": now,
+                        "rule": "ssd_deal",
+                        "listing_id": ad_id,
+                        "title": listing["title"],
+                        "price_lei": listing["price"],
+                        "model": "",
+                        "score_pct": "",
+                        "ssd_capacity_gb": capacity_gb if capacity_gb is not None else "",
+                        "location": listing["location"],
+                        "posted_at": listing["created_time"],
+                        "url": listing["url"],
+                    },
                 )
             except Exception:
                 logging.exception("Failed processing ssd-deal listing %s", ad_id)

@@ -1,3 +1,4 @@
+import csv
 import json
 from unittest.mock import patch
 
@@ -77,6 +78,14 @@ def test_run_emails_only_qualifying_new_listing(tmp_path, monkeypatch):
     assert model_arg == "ThinkPad T14"
     assert gmail_arg["address"] == "sender@gmail.com"
 
+    with open(tmp_path / "alerts_log.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == 1
+    assert rows[0]["rule"] == "business"
+    assert rows[0]["listing_id"] == "111"
+    assert rows[0]["model"] == "ThinkPad T14"
+    assert rows[0]["price_lei"] == "1200"
+
 
 def test_run_is_idempotent_on_second_pass(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
@@ -89,6 +98,10 @@ def test_run_is_idempotent_on_second_pass(tmp_path, monkeypatch):
         main_module.run(config_path)
 
     assert mock_send_email.call_count == 1
+
+    with open(tmp_path / "alerts_log.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == 1  # CSV log doesn't duplicate rows for already-seen listings
 
 
 def test_run_logs_and_tracks_failure_on_scrape_error(tmp_path, monkeypatch):
@@ -250,6 +263,14 @@ def test_run_sends_ssd_deal_email_for_qualifying_listing(tmp_path, monkeypatch):
     assert mock_send_ssd_email.call_count == 1
     (listing_arg, capacity_arg, gmail_arg), _ = mock_send_ssd_email.call_args
     assert listing_arg["id"] == "333"
+
+    with open(tmp_path / "alerts_log.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    ssd_rows = [r for r in rows if r["rule"] == "ssd_deal"]
+    assert len(ssd_rows) == 1
+    assert ssd_rows[0]["listing_id"] == "333"
+    assert ssd_rows[0]["ssd_capacity_gb"] == "512"
+    assert ssd_rows[0]["model"] == ""
     assert capacity_arg == 512
     assert gmail_arg["address"] == "sender@gmail.com"
 
