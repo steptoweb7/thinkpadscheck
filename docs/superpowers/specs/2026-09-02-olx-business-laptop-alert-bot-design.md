@@ -292,15 +292,33 @@ alerts in the inbox.
 - Network timeouts: 15s request timeout, no retries within a run
   (next hourly run acts as the retry).
 
-## Configuration (`config.yaml`)
+## Configuration (`settings.yaml` + `config.yaml`)
+
+Split across two files, merged at load time by `olx_bot.config.load_config`
+(`settings.yaml` as base, `config.yaml` overlaid on top, deep-merged so
+nested blocks like `ssd_deal` combine rather than one replacing the
+other wholesale):
+
+- `settings.yaml` — tracked in git. Every non-secret tuning knob, so a
+  `git pull` on the deployment machine alone changes bot behavior with
+  no manual edit there. Added after repeated friction: every threshold
+  tweak initially required editing `config.yaml` by hand on the remote
+  Windows machine over RDP.
+- `config.yaml` — gitignored. Only the `gmail:` block (address,
+  app_password, to). Never committed; a value defined in both files
+  lets `config.yaml` win, for a one-off local override without a push.
 
 ```yaml
+# settings.yaml (tracked)
 filter_url: "https://www.olx.ro/...&search[filter_float_price:to]=1800&..."
 max_price: 1800
 min_ram_gb: 16
 excluded_keywords: ["defect", "nefunctional", "pe piese", ...]
 business_models: ["ThinkPad T4", "ThinkPad T5", ...]
 reference_prices: {...}
+ssd_deal: {...}
+
+# config.yaml (gitignored, local only)
 gmail:
   address: "..."
   app_password: "..."  # local only, never committed

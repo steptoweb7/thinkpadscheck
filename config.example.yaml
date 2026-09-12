@@ -1,39 +1,7 @@
-filter_url: "https://www.olx.ro/electronice-si-electrocasnice/laptop-calculator-gaming/laptopuri/?search%5Bfilter_float_price%3Ato%5D=1800&search%5Border%5D=created_at%3Adesc"
-max_price: 1800
-db_path: "seen_listings.db"
-
-reference_prices:
-  "ThinkPad T480": 1800
-  "ThinkPad T490": 2000
-  "ThinkPad T14": 2200
-  "ThinkPad X13": 2100
-  "ThinkPad P14s": 2400
-  "Latitude 5490": 1600
-  "EliteBook 840": 1700
-
-# Second, independent alert rule: ignores CPU/RAM/model entirely — just a
-# real SSD (not HDD) of at least min_ssd_gb, at a throwaway price. Catches
-# sellers who don't realize how much their SSD alone is worth right now.
-ssd_deal:
-  filter_urls:
-    - "https://www.olx.ro/electronice-si-electrocasnice/laptop-calculator-gaming/laptopuri/?search%5Border%5D=created_at%3Adesc"
-    - "https://www.olx.ro/electronice-si-electrocasnice/laptop-calculator-gaming/sisteme-pc-si-gaming/?search%5Border%5D=created_at%3Adesc"
-    - "https://www.olx.ro/electronice-si-electrocasnice/componente-laptop-pc/hard-disk-uri/?search%5Border%5D=created_at%3Adesc"
-  max_price: 800
-  min_ssd_gb: 512
-  # Standalone drives (sold as a bare component, not inside a laptop/PC)
-  # are judged against a LIVE market median instead of max_price above --
-  # a bare drive isn't "seller doesn't realize the SSD is valuable"
-  # arbitrage, they're selling exactly the drive, so the bar is whatever
-  # the real current market price for that exact capacity is. The bot
-  # builds this median itself over time from every standalone-drive
-  # price it observes (see ssd_price_observations in seen_listings.db).
-  # min_samples: don't alert on a capacity until at least this many real
-  # prices have been observed for it (a median from 1-2 ads is noise).
-  # discount_threshold: alert only if price <= median * this (0.6 = 40%+ off).
-  min_samples: 5
-  discount_threshold: 0.6
-
+# Local secrets only -- NOT tracked in git (see .gitignore). Copy this
+# file to config.yaml and fill in your Gmail credentials. Every other
+# setting (prices, models, URLs) lives in settings.yaml instead, which
+# IS tracked in git, so changes to those arrive with a plain `git pull`.
 gmail:
   address: "your_email@gmail.com"
   app_password: "your_16_char_app_password"
