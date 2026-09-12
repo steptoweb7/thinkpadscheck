@@ -1,4 +1,6 @@
+from olx_bot.db import init_db, record_price_observation
 from olx_bot.filters import (
+    capacity_bucket,
     extract_ssd_capacity_gb,
     passes_hard_filters,
     passes_ssd_deal_filter,
@@ -9,9 +11,17 @@ SSD_CONFIG = {
     "ssd_deal": {
         "max_price": 800,
         "min_ssd_gb": 512,
-        "standalone_drive_max_price_by_gb": {512: 150, 1000: 200, 2000: 300},
+        "min_samples": 5,
+        "discount_threshold": 0.6,
     }
 }
+
+
+def _conn_with_market_prices(tmp_path, bucket, prices, name="market.db"):
+    conn = init_db(str(tmp_path / name))
+    for i, price in enumerate(prices):
+        record_price_observation(conn, f"market-ad-{bucket}-{i}", bucket, price, "2026-09-12T00:00:00")
+    return conn
 
 
 def standalone_drive_listing(**overrides):
@@ -234,17 +244,18 @@ def test_ssd_deal_accepts_hdd_plus_ssd_combo():
     assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
 
 
-def test_ssd_deal_accepts_standalone_drive_listing_schema():
+def test_ssd_deal_accepts_standalone_drive_listing_schema(tmp_path):
     """Standalone SSD/HDD listings (sold as a bare component, not inside a
     laptop/PC) use a different OLX category with a different params schema:
     "tip" (SSD/HDD) instead of "tip_stocare", no capacity field at all."""
+    conn = _conn_with_market_prices(tmp_path, capacity_bucket(960), [400, 420, 380, 410, 390])
     listing = ssd_deal_listing(
         title="SSD Kingston A400, 960GB, 2.5\", SATA III - Nou Sigilat",
         description="SSD nou, sigilat, garantie.",
         price=140,
         params={"state": "Nou", "tip": "SSD"},
     )
-    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG, conn) is True
 
 
 def test_ssd_deal_excludes_standalone_hdd_listing():
@@ -257,57 +268,63 @@ def test_ssd_deal_excludes_standalone_hdd_listing():
     assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
 
 
-# --- standalone-drive rule uses tiered pricing by capacity, not the flat
-# max_price used for laptops/PCs: a bare drive isn't "arbitrage" (the
-# seller knows exactly what they're selling), so the price bar is much
-# lower and scales with how much storage you're actually getting.
+# --- standalone-drive rule compares against a live market median (built
+# from previously observed standalone-drive prices at the same capacity
+# bucket), not the flat max_price used for laptops/PCs: a bare drive isn't
+# "arbitrage" (the seller knows exactly what they're selling), so the bar
+# is however cheap the *current real market* actually is for that size.
 
 
-def test_standalone_drive_512gb_tier_passes_under_threshold():
-    listing = standalone_drive_listing(title="SSD Samsung 512GB SATA", price=149)
-    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
+def test_standalone_drive_alerts_when_price_is_deep_discount_of_market_median(tmp_path):
+    conn = _conn_with_market_prices(tmp_path, capacity_bucket(512), [300, 310, 290, 320, 280])
+    listing = standalone_drive_listing(title="SSD Samsung 512GB SATA", price=180)  # 60% of 300
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG, conn) is True
 
 
-def test_standalone_drive_512gb_tier_fails_over_threshold():
-    listing = standalone_drive_listing(title="SSD Samsung 512GB SATA", price=151)
+def test_standalone_drive_rejects_price_above_discount_threshold(tmp_path):
+    conn = _conn_with_market_prices(tmp_path, capacity_bucket(512), [300, 310, 290, 320, 280])
+    listing = standalone_drive_listing(title="SSD Samsung 512GB SATA", price=190)
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG, conn) is False
+
+
+def test_standalone_drive_rejects_when_too_few_market_samples(tmp_path):
+    """Only 2 observed prices for this bucket -- not enough to trust a
+    median, so no alert even at a very low price."""
+    conn = _conn_with_market_prices(tmp_path, capacity_bucket(1000), [400, 420])
+    listing = standalone_drive_listing(title="SSD Samsung 1TB NVMe", price=50)
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG, conn) is False
+
+
+def test_standalone_drive_rejects_when_no_conn_given():
+    listing = standalone_drive_listing(title="SSD Samsung 512GB SATA", price=1)
     assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
 
 
-def test_standalone_drive_1tb_tier_passes_under_threshold():
-    listing = standalone_drive_listing(title="SSD Samsung 1TB NVMe", price=199)
-    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
+def test_standalone_drive_2tb_deal_works_same_as_any_other_size(tmp_path):
+    """The whole point of the market-median approach: large capacities
+    (2TB+) get real deals recognized too, not just whatever fixed tier
+    someone guessed."""
+    conn = _conn_with_market_prices(tmp_path, capacity_bucket(2000), [500, 520, 480, 510, 490])
+    cheap = standalone_drive_listing(title="SSD Samsung 2TB NVMe", price=290)  # ~58% of 500
+    assert passes_ssd_deal_filter(cheap, SSD_CONFIG, conn) is True
+
+    not_cheap_enough = standalone_drive_listing(title="SSD Samsung 2TB NVMe", price=310)
+    assert passes_ssd_deal_filter(not_cheap_enough, SSD_CONFIG, conn) is False
 
 
-def test_standalone_drive_1tb_tier_fails_over_threshold():
-    listing = standalone_drive_listing(title="SSD Samsung 1TB NVMe", price=201)
-    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
+def test_standalone_drive_capacity_bucketing_pools_similar_sizes(tmp_path):
+    """Real listings say "960GB" or "1TB" for what's the same drive size --
+    both must land in the same market bucket."""
+    conn = _conn_with_market_prices(tmp_path, capacity_bucket(1000), [400, 420, 380, 410, 390])
+    listing = standalone_drive_listing(title="SSD Samsung 960GB NVMe", price=230)  # ~57% of 400
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG, conn) is True
 
 
-def test_standalone_drive_2tb_tier_passes_under_threshold():
-    listing = standalone_drive_listing(title="SSD Samsung 2TB NVMe", price=299)
-    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
-
-
-def test_standalone_drive_2tb_tier_fails_over_threshold():
-    listing = standalone_drive_listing(title="SSD Samsung 2TB NVMe", price=301)
-    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
-
-
-def test_standalone_drive_extrapolates_threshold_beyond_largest_tier():
-    """No 4TB tier is configured; extrapolate linearly from the rate
-    between the two largest configured tiers (1TB->2TB: +100 lei per +1000GB,
-    i.e. 0.1 lei/GB), so 4TB (2000GB past the 2TB tier) gets 300 + 200 = 500."""
-    listing = standalone_drive_listing(title="SSD Samsung 4TB NVMe", price=499)
-    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
-
-    listing = standalone_drive_listing(title="SSD Samsung 4TB NVMe", price=501)
-    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
-
-
-def test_laptop_ssd_deal_still_uses_flat_max_price_not_tiers():
-    """The tiered pricing is standalone-drive-only. A laptop/PC listing
-    with a huge SSD should still be judged against the flat ssd_deal
-    max_price (800), not the much stricter standalone tiers."""
+def test_laptop_ssd_deal_still_uses_flat_max_price_not_market_median():
+    """The market-median approach is standalone-drive-only. A laptop/PC
+    listing with a huge SSD should still be judged against the flat
+    ssd_deal max_price (800) -- a bundled system's price says nothing
+    about the drive's own market value."""
     listing = ssd_deal_listing(
         title="Laptop HP i5, 2TB SSD",
         params={"tip_stocare": "SSD"},

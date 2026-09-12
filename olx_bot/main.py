@@ -5,8 +5,16 @@ import os
 
 from olx_bot.config import load_config
 from olx_bot.csv_log import append_alert
-from olx_bot.db import init_db, is_seen, mark_seen
-from olx_bot.filters import extract_ssd_capacity_gb, passes_hard_filters, passes_ssd_deal_filter
+from olx_bot.db import init_db, is_seen, mark_seen, record_price_observation
+from olx_bot.filters import (
+    capacity_bucket,
+    extract_ssd_capacity_gb,
+    is_part_out_listing,
+    is_ssd,
+    is_standalone_drive,
+    passes_hard_filters,
+    passes_ssd_deal_filter,
+)
 from olx_bot.notifier import send_email, send_ssd_deal_email
 from olx_bot.parser import parse_listings
 from olx_bot.scorer import compute_score
@@ -156,7 +164,25 @@ def run(config_path: str = "config.yaml") -> None:
             try:
                 if is_seen(conn, db_key):
                     continue
-                if not passes_ssd_deal_filter(listing, config):
+
+                should_alert = passes_ssd_deal_filter(listing, config, conn)
+
+                params = listing.get("params", {})
+                if not listing.get("is_business") and is_ssd(params) and is_standalone_drive(params):
+                    text = f"{listing.get('title', '')} {listing.get('description', '')}"
+                    if not is_part_out_listing(text):
+                        market_capacity = extract_ssd_capacity_gb(text)
+                        market_price = listing.get("price")
+                        if market_capacity is not None and market_price is not None:
+                            record_price_observation(
+                                conn,
+                                str(ad_id),
+                                capacity_bucket(market_capacity),
+                                market_price,
+                                datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                            )
+
+                if not should_alert:
                     continue
 
                 capacity_gb = extract_ssd_capacity_gb(

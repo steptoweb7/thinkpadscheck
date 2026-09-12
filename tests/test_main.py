@@ -329,3 +329,42 @@ def test_run_ssd_deal_and_business_dedup_are_independent(tmp_path, monkeypatch):
 
     assert mock_send_email.call_count == 1
     assert mock_send_ssd_email.call_count == 1
+
+
+def _standalone_ad(ad_id, price):
+    return {
+        "id": ad_id,
+        "title": "SSD Test 512GB SATA",
+        "description": "SSD nou, sigilat",
+        "url": f"https://www.olx.ro/d/oferta/test-{ad_id}.html",
+        "createdTime": "2026-09-12T08:00:00+03:00",
+        "location": {"pathName": "Bucuresti"},
+        "price": {"regularPrice": {"value": price}},
+        "params": [{"key": "state", "value": "Nou"}, {"key": "tip", "value": "SSD"}],
+    }
+
+
+def test_run_learns_standalone_drive_market_price_and_alerts_on_real_discount(tmp_path, monkeypatch):
+    """No fixed price tier for standalone drives anymore: the bot must
+    build its own market median from observed prices (min_samples=5 by
+    default) before it can recognize a real discount, at any capacity."""
+    # Five "normal" 512GB listings (300 lei) establish the market median,
+    # then a sixth at a deep discount (170 lei, well under 60% of 300)
+    # should be the only one that actually alerts.
+    ads = [_standalone_ad(i, 300) for i in range(1, 6)] + [_standalone_ad(6, 170)]
+    state = {"listing": {"listing": {"ads": ads}}}
+    html = f"<html><script>window.__PRERENDERED_STATE__ = {json.dumps(json.dumps(state))};\n</script></html>"
+
+    monkeypatch.chdir(tmp_path)
+    config_path = _write_config_with_ssd_deal(tmp_path)
+
+    with patch(
+        "olx_bot.main.fetch_html", side_effect=_fetch_html_by_url(_fake_html(), html)
+    ), patch("olx_bot.main.send_email"), patch(
+        "olx_bot.main.send_ssd_deal_email"
+    ) as mock_send_ssd_email:
+        main_module.run(config_path)
+
+    assert mock_send_ssd_email.call_count == 1
+    (listing_arg, _capacity_arg, _gmail_arg), _ = mock_send_ssd_email.call_args
+    assert listing_arg["id"] == "6"

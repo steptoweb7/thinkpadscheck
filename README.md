@@ -26,6 +26,20 @@ score for each new match. Design: see
    ```
    Check `bot.log` for errors, and confirm `seen_listings.db` was created.
 
+## Standalone SSD/HDD deals use a self-learning market price
+
+For bare-drive listings (the `componente-laptop-pc/hard-disk-uri`
+category), the bot doesn't use a fixed price per capacity — it builds
+its own market median over time from every standalone-drive price it
+sees, grouped by capacity (512GB, 1TB, 2TB, etc.), and only alerts when
+a price is `ssd_deal.discount_threshold` (default 0.6 = 40%+ off) below
+that median. This means: **a fresh install won't alert on any capacity
+until it has seen at least `ssd_deal.min_samples` (default 5) real
+prices for that exact size** — give it a few days to build up history.
+Once it has, this covers any capacity automatically (512GB, 1TB, 2TB,
+4TB+), unlike the old fixed price table which had to be hand-tuned per
+size and went stale.
+
 ## Alert history (`alerts_log.csv`)
 
 Every alert actually emailed (both rules) also gets appended as a row to

@@ -234,18 +234,35 @@ Rules (all AND'd):
    because the rule itself is explicitly a loose "any specs" scan, not
    the precision-focused business-laptop rule.
 4. Price threshold, which DIFFERS by listing type:
-   - Laptop/PC-system listings: flat `max_price` (default 800 lei).
-   - Standalone-drive listings: NOT the flat `max_price` — a bare drive
-     isn't the "seller doesn't realize the SSD is valuable" arbitrage
-     this rule targets elsewhere, the seller is selling exactly the
-     drive at whatever the market already prices it at, so 800 lei
-     would just be "normal price", not a deal. Instead uses
-     `standalone_drive_max_price_by_gb`, a capacity→price tier table
-     (default `{512: 150, 1000: 200, 2000: 300}`): the threshold is the
-     tier at or below the drive's capacity, and above the largest
-     configured tier it extrapolates linearly using the price-per-GB
-     rate between the two largest tiers (`filters.standalone_drive_price_threshold`)
-     rather than capping forever at the top tier's price.
+   - Laptop/PC-system listings: flat `max_price` (default 800 lei) — a
+     bundled system's price isn't a proxy for the drive's own value, so
+     this stays a fixed ceiling regardless of capacity.
+   - Standalone-drive listings: NOT the flat `max_price`, and NOT a fixed
+     capacity→price tier table either (an earlier version used one —
+     `{512: 150, 1000: 200, 2000: 300}` — but real market prices move
+     and hand-picked tiers meant genuinely cheap 2TB+ drives almost never
+     qualified, since 300 lei was already unrealistically low for a real
+     2TB SSD). Replaced with a LIVE market median: every standalone-drive
+     price the bot observes (any listing that's an SSD, private seller,
+     not a part-out listing, valid capacity) gets recorded once per ad
+     into `ssd_price_observations` (`db.record_price_observation`),
+     keyed by `filters.capacity_bucket(capacity_gb)` — capacities are
+     snapped to the nearest of `[128, 256, 512, 1000, 2000, 4000, 8000]`
+     GB so "500GB" and "512GB" sellers pool into the same bucket. Before
+     alerting, `filters.passes_ssd_deal_filter` looks up
+     `db.get_price_stats(conn, bucket)` → `(median, count)`; requires
+     `count >= ssd_deal.min_samples` (default 5 — a median from 1-2 ads
+     is noise, not a market rate) and alerts only if
+     `price <= median * ssd_deal.discount_threshold` (default 0.6, i.e.
+     40%+ off the observed market rate for that exact capacity). This
+     self-calibrates over time and treats every capacity the same way —
+     2TB, 3TB, 4TB+ drives get real deals recognized once enough samples
+     exist, instead of being capped by a guessed number nobody updates.
+     Price recording happens in `main.py` for every standalone-drive
+     listing scanned (whether or not it ends up alerting), independent
+     of whether the ad has already been seen for alert-dedup purposes —
+     `INSERT OR IGNORE` on the ad id keeps a repeatedly-rescanned ad from
+     being double-counted into the median.
 
 No scoring step — "cheap enough" is binary here (price threshold), not a %
 below a reference. Notification uses a distinct email subject

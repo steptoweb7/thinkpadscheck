@@ -1,5 +1,7 @@
 import re
 
+from olx_bot.db import get_price_stats
+
 # Title-only matching: real listing descriptions are full of reseller boilerplate
 # (trade-in offers, accessory lists, other-model mentions, upgrade pricing) that
 # causes false matches/exclusions when combined with the title (found via live testing).
@@ -44,6 +46,8 @@ _PART_OUT_KEYWORDS = [
     "pretul este doar pentru",
     "pretul e doar pentru",
 ]
+
+_CAPACITY_BUCKETS = [128, 256, 512, 1000, 2000, 4000, 8000]
 
 _CAPACITY_PATTERN = r"\b(\d+(?:\.\d+)?)\s*(gb|tb)\b"
 _MAX_PLAUSIBLE_CAPACITY_GB = 8000  # 8TB ceiling; larger matches are parsing noise, not real drives
@@ -114,37 +118,11 @@ def is_standalone_drive(params: dict) -> bool:
     return "tip" in params and "tip_stocare" not in params
 
 
-def standalone_drive_price_threshold(capacity_gb: int, tiers: dict) -> float:
-    """Max price for a standalone drive of this capacity, from a
-    capacity->price tier table (e.g. {512: 150, 1000: 200, 2000: 300}).
-
-    A bare drive isn't the "seller doesn't know the system's SSD is
-    valuable" arbitrage the rest of this rule targets — the seller is
-    selling exactly the drive, at whatever the market already prices it
-    at — so the bar is a much lower, capacity-scaled ceiling instead of
-    the flat ssd_deal.max_price used for laptops/PCs.
-
-    Uses the tier at or below the drive's capacity. Above the largest
-    configured tier, extrapolates linearly using the price-per-GB rate
-    between the two largest tiers, rather than capping forever at the
-    top tier's price (which would wrongly reject a genuinely cheap
-    high-capacity drive) or leaving larger drives unthrottled.
-    """
-    sorted_tiers = sorted((int(gb), price) for gb, price in tiers.items())
-    threshold = sorted_tiers[0][1]
-    for gb, price in sorted_tiers:
-        if capacity_gb >= gb:
-            threshold = price
-        else:
-            break
-
-    largest_gb, largest_price = sorted_tiers[-1]
-    if capacity_gb > largest_gb and len(sorted_tiers) >= 2:
-        second_gb, second_price = sorted_tiers[-2]
-        rate_per_gb = (largest_price - second_price) / (largest_gb - second_gb)
-        threshold = largest_price + (capacity_gb - largest_gb) * rate_per_gb
-
-    return threshold
+def capacity_bucket(capacity_gb: int) -> int:
+    """Snaps a real-world capacity (which varies seller to seller: 500 vs
+    512, 960 vs 1000, etc.) to the nearest standard size, so prices for
+    the "same" drive size can be pooled into one market-average bucket."""
+    return min(_CAPACITY_BUCKETS, key=lambda bucket: abs(bucket - capacity_gb))
 
 
 def extract_ssd_capacity_gb(text: str) -> int | None:
@@ -193,7 +171,17 @@ def extract_ssd_capacity_gb(text: str) -> int | None:
     return max(capacities) if capacities else None
 
 
-def passes_ssd_deal_filter(listing: dict, config: dict) -> bool:
+def passes_ssd_deal_filter(listing: dict, config: dict, conn=None) -> bool:
+    """Laptop/PC listings (bundled system price) still use a flat
+    ssd_deal.max_price — a whole system's price isn't a proxy for the
+    drive's own market value. Standalone drive listings instead compare
+    against a live market median built from previously observed
+    standalone-drive prices at the same capacity_bucket (via `conn`):
+    requires at least ssd_deal.min_samples observations at that bucket
+    (a median from 1-2 ads is noise, not a market rate), then alerts only
+    if the price is at or under ssd_deal.discount_threshold (default 0.6,
+    i.e. 40%+ off) of that median.
+    """
     if listing.get("is_business"):
         return False
 
@@ -216,11 +204,16 @@ def passes_ssd_deal_filter(listing: dict, config: dict) -> bool:
         return False
 
     if is_standalone_drive(params):
-        tiers = ssd_config.get("standalone_drive_max_price_by_gb")
-        max_price = standalone_drive_price_threshold(capacity, tiers) if tiers else ssd_config.get("max_price", 800)
-    else:
-        max_price = ssd_config.get("max_price", 800)
+        if conn is None:
+            return False
+        median, count = get_price_stats(conn, capacity_bucket(capacity))
+        min_samples = ssd_config.get("min_samples", 5)
+        if median is None or count < min_samples:
+            return False
+        discount_threshold = ssd_config.get("discount_threshold", 0.6)
+        return price <= median * discount_threshold
 
+    max_price = ssd_config.get("max_price", 800)
     return price <= max_price
 
 
