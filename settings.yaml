@@ -8,7 +8,7 @@ max_price: 1800
 db_path: "seen_listings.db"
 
 reference_prices:
-  "ThinkPad T480": 1800
+  "ThinkPad T480": 1000
   "ThinkPad T490": 2000
   "ThinkPad T14": 2200
   "ThinkPad X13": 2100
