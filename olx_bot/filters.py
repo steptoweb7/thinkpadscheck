@@ -179,8 +179,8 @@ def passes_ssd_deal_filter(listing: dict, config: dict, conn=None) -> bool:
     standalone-drive prices at the same capacity_bucket (via `conn`):
     requires at least ssd_deal.min_samples observations at that bucket
     (a median from 1-2 ads is noise, not a market rate), then alerts only
-    if the price is at or under ssd_deal.discount_threshold (default 0.6,
-    i.e. 40%+ off) of that median.
+    if the price is at or under ssd_deal.discount_threshold (default 0.5,
+    i.e. 50%+ off) of that median.
     """
     if listing.get("is_business"):
         return False
@@ -210,7 +210,7 @@ def passes_ssd_deal_filter(listing: dict, config: dict, conn=None) -> bool:
         min_samples = ssd_config.get("min_samples", 5)
         if median is None or count < min_samples:
             return False
-        discount_threshold = ssd_config.get("discount_threshold", 0.6)
+        discount_threshold = ssd_config.get("discount_threshold", 0.5)
         return price <= median * discount_threshold
 
     max_price = ssd_config.get("max_price", 800)

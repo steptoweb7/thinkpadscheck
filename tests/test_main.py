@@ -349,9 +349,9 @@ def test_run_learns_standalone_drive_market_price_and_alerts_on_real_discount(tm
     build its own market median from observed prices (min_samples=5 by
     default) before it can recognize a real discount, at any capacity."""
     # Five "normal" 512GB listings (300 lei) establish the market median,
-    # then a sixth at a deep discount (170 lei, well under 60% of 300)
+    # then a sixth at a deep discount (140 lei, well under 50% of 300)
     # should be the only one that actually alerts.
-    ads = [_standalone_ad(i, 300) for i in range(1, 6)] + [_standalone_ad(6, 170)]
+    ads = [_standalone_ad(i, 300) for i in range(1, 6)] + [_standalone_ad(6, 140)]
     state = {"listing": {"listing": {"ads": ads}}}
     html = f"<html><script>window.__PRERENDERED_STATE__ = {json.dumps(json.dumps(state))};\n</script></html>"
 

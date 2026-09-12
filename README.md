@@ -32,7 +32,7 @@ For bare-drive listings (the `componente-laptop-pc/hard-disk-uri`
 category), the bot doesn't use a fixed price per capacity — it builds
 its own market median over time from every standalone-drive price it
 sees, grouped by capacity (512GB, 1TB, 2TB, etc.), and only alerts when
-a price is `ssd_deal.discount_threshold` (default 0.6 = 40%+ off) below
+a price is `ssd_deal.discount_threshold` (default 0.5 = 50%+ off) below
 that median. This means: **a fresh install won't alert on any capacity
 until it has seen at least `ssd_deal.min_samples` (default 5) real
 prices for that exact size** — give it a few days to build up history.
