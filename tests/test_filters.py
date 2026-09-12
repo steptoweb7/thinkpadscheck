@@ -320,16 +320,16 @@ def test_standalone_drive_capacity_bucketing_pools_similar_sizes(tmp_path):
     assert passes_ssd_deal_filter(listing, SSD_CONFIG, conn) is True
 
 
-def test_standalone_drive_default_discount_threshold_is_50_percent(tmp_path):
-    """When discount_threshold isn't configured, default to 0.5 (50%+ off)."""
+def test_standalone_drive_default_discount_threshold_is_40_percent(tmp_path):
+    """When discount_threshold isn't configured, default to 0.6 (40%+ off)."""
     config = {"ssd_deal": {"max_price": 800, "min_ssd_gb": 512, "min_samples": 5}}
     conn = _conn_with_market_prices(tmp_path, capacity_bucket(512), [100, 100, 100, 100, 100])
 
-    at_50_percent = standalone_drive_listing(title="SSD Samsung 512GB SATA", price=50)
-    assert passes_ssd_deal_filter(at_50_percent, config, conn) is True
+    at_40_percent = standalone_drive_listing(title="SSD Samsung 512GB SATA", price=60)
+    assert passes_ssd_deal_filter(at_40_percent, config, conn) is True
 
-    above_50_percent = standalone_drive_listing(title="SSD Samsung 512GB SATA", price=60)
-    assert passes_ssd_deal_filter(above_50_percent, config, conn) is False
+    above_40_percent = standalone_drive_listing(title="SSD Samsung 512GB SATA", price=70)
+    assert passes_ssd_deal_filter(above_40_percent, config, conn) is False
 
 
 def test_laptop_ssd_deal_still_uses_flat_max_price_not_market_median():

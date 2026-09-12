@@ -253,8 +253,8 @@ Rules (all AND'd):
      `db.get_price_stats(conn, bucket)` → `(median, count)`; requires
      `count >= ssd_deal.min_samples` (default 5 — a median from 1-2 ads
      is noise, not a market rate) and alerts only if
-     `price <= median * ssd_deal.discount_threshold` (default 0.5, i.e.
-     50%+ off the observed market rate for that exact capacity). This
+     `price <= median * ssd_deal.discount_threshold` (default 0.6, i.e.
+     40%+ off the observed market rate for that exact capacity). This
      self-calibrates over time and treats every capacity the same way —
      2TB, 3TB, 4TB+ drives get real deals recognized once enough samples
      exist, instead of being capped by a guessed number nobody updates.

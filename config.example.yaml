@@ -30,9 +30,9 @@ ssd_deal:
   # price it observes (see ssd_price_observations in seen_listings.db).
   # min_samples: don't alert on a capacity until at least this many real
   # prices have been observed for it (a median from 1-2 ads is noise).
-  # discount_threshold: alert only if price <= median * this (0.5 = 50%+ off).
+  # discount_threshold: alert only if price <= median * this (0.6 = 40%+ off).
   min_samples: 5
-  discount_threshold: 0.5
+  discount_threshold: 0.6
 
 gmail:
   address: "your_email@gmail.com"
