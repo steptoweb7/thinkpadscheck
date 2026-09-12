@@ -1,7 +1,7 @@
 # OLX Business Laptop Alert Bot
 
 Hourly scans OLX for ThinkPad/Latitude/EliteBook laptops with 16GB+
-RAM, 11th-gen+ CPU, SSD, under 1500 lei, and emails a deal-quality
+RAM, 11th-gen+ CPU, SSD, under 1800 lei, and emails a deal-quality
 score for each new match. Design: see
 `docs/superpowers/specs/2026-09-02-olx-business-laptop-alert-bot-design.md`.
 

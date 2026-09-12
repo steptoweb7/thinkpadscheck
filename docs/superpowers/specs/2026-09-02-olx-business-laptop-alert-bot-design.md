@@ -69,10 +69,11 @@ single `requests.get()` on the filter URL is sufficient.
 ## Reference filter link
 
 ```
-https://www.olx.ro/electronice-si-electrocasnice/laptop-calculator-gaming/laptopuri/?search%5Bfilter_float_price%3Ato%5D=1500&search%5Border%5D=created_at%3Adesc
+https://www.olx.ro/electronice-si-electrocasnice/laptop-calculator-gaming/laptopuri/?search%5Bfilter_float_price%3Ato%5D=1800&search%5Border%5D=created_at%3Adesc
 ```
-(Price cap raised to 1500 lei here vs. the general link, because
-business-class laptops meeting the spec bar rarely appear under 1000.)
+(Price cap raised to 1800 lei here vs. the general link, because
+business-class laptops meeting the spec bar rarely appear under 1000;
+raised from 1500 after a dry spell with no business alerts for ~18h.)
 
 ## Architecture
 
@@ -138,7 +139,8 @@ in both directions when included.
    data is available for essentially every listing on this category,
    so "missing" almost always means the ad predates the field and is
    old/stale).
-6. **Price <= 1500 lei.** From `price.regularPrice.value`. Ads with no
+6. **Price <= 1800 lei** (`max_price` in config; raised from 1500 after
+   a dry spell). From `price.regularPrice.value`. Ads with no
    regular price (`free`/`exchange` only) are EXCLUDED.
 7. **Private seller only.** Uses the ad's structured `isBusiness` field
    directly (not a text heuristic — OLX marks shop/dealer listings
@@ -293,8 +295,8 @@ alerts in the inbox.
 ## Configuration (`config.yaml`)
 
 ```yaml
-filter_url: "https://www.olx.ro/...&search[filter_float_price:to]=1500&..."
-max_price: 1500
+filter_url: "https://www.olx.ro/...&search[filter_float_price:to]=1800&..."
+max_price: 1800
 min_ram_gb: 16
 excluded_keywords: ["defect", "nefunctional", "pe piese", ...]
 business_models: ["ThinkPad T4", "ThinkPad T5", ...]
