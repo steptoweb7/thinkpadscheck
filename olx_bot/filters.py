@@ -35,6 +35,14 @@ _CPU_GEN_PATTERNS = [
     r"\bcore ultra [3579]\b",
 ]
 
+_PART_OUT_KEYWORDS = [
+    "dezmembr",
+    "se negociaza separat",
+    "pentru restul se negociaza",
+    "pretul este pentru carcasa",
+    "pretul e pentru carcasa",
+]
+
 _CAPACITY_PATTERN = r"\b(\d+(?:\.\d+)?)\s*(gb|tb)\b"
 _MAX_PLAUSIBLE_CAPACITY_GB = 8000  # 8TB ceiling; larger matches are parsing noise, not real drives
 _STORAGE_KEYWORD_PATTERN = re.compile(r"\b(ssd|hdd)\b")
@@ -49,6 +57,15 @@ def normalize_text(text: str) -> str:
 def contains_excluded_keyword(text: str) -> bool:
     normalized = normalize_text(text)
     return any(keyword in normalized for keyword in _EXCLUDED_KEYWORDS)
+
+
+def is_part_out_listing(text: str) -> bool:
+    """True if the listing is dismembering the machine and selling parts
+    separately (e.g. "dezmembrez", "pretul e pentru carcasa + sursa,
+    restul se negociaza") — the advertised drive isn't actually for sale
+    at the listed price, so it's not a real deal."""
+    normalized = normalize_text(text)
+    return any(keyword in normalized for keyword in _PART_OUT_KEYWORDS)
 
 
 def matches_business_model(text: str) -> bool:
@@ -183,6 +200,9 @@ def passes_ssd_deal_filter(listing: dict, config: dict) -> bool:
         return False
 
     text = f"{listing.get('title', '')} {listing.get('description', '')}"
+    if is_part_out_listing(text):
+        return False
+
     capacity = extract_ssd_capacity_gb(text)
     if capacity is None or capacity < ssd_config.get("min_ssd_gb", 512):
         return False

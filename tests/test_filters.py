@@ -332,3 +332,19 @@ def test_ssd_deal_ignores_specs_entirely():
         title="Laptop Asus vechi, i3 gen 2, 4GB RAM, 512GB SSD"
     )
     assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
+
+
+def test_ssd_deal_excludes_part_out_listing():
+    """Real bug: title mentions "1000GB SSD" but description makes clear the
+    price is for the case+PSU only and everything else (including the drive)
+    is negotiated separately — the SSD isn't actually for sale at that
+    price."""
+    listing = ssd_deal_listing(
+        title="Dell Precision T3610 - statie PC TOP - 500 lei (1000GB SSD)",
+        description=(
+            "Atentie! Dezmembrez. 500 ron este pretul pentru carcasa + sursa. "
+            "Pentru restul se negociaza."
+        ),
+        price=500,
+    )
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
