@@ -7,14 +7,18 @@ filter_url: "https://www.olx.ro/electronice-si-electrocasnice/laptop-calculator-
 max_price: 1800
 db_path: "seen_listings.db"
 
+# Prices below reflect real OLX private-seller asking prices checked
+# 2026-09-12 for a typical qualifying spec (16GB RAM, matching SSD size,
+# gen 11+ CPU where the model requires it). Used only to compute the
+# score_pct shown in alert emails, not as an exclusion threshold.
 reference_prices:
-  "ThinkPad T480": 1000
-  "ThinkPad T490": 2000
-  "ThinkPad T14": 2200
-  "ThinkPad X13": 2100
-  "ThinkPad P14s": 2400
-  "Latitude 5490": 1600
-  "EliteBook 840": 1700
+  "ThinkPad T480": 900     # observed 700-1300 lei (i5/i7 gen8, 8-32GB, 256-512GB)
+  "ThinkPad T490": 900     # observed 600-1100 lei (i5/i7 gen8, 16GB, 256-512GB)
+  "ThinkPad T14": 1500     # observed 1300-2019 lei (i5-1145G7-class, 16GB, 256-512GB)
+  "ThinkPad X13": 1500     # observed 1100-1789 lei (gen11, 16GB, 256GB)
+  "ThinkPad P14s": 1800    # observed 1300-3099 lei (gen11+, used); most affordable units cluster near the low end
+  "Latitude 5490": 800     # observed 450-1000 lei (i3/i5 gen7-8, 8GB, 128-512GB)
+  "EliteBook 840": 1300    # observed 1050-1500 lei (gen11-13 G8/G9/G10 only, 16GB, 256-512GB)
 
 # Second, independent alert rule: ignores CPU/RAM/model entirely — just a
 # real SSD (not HDD) of at least min_ssd_gb, at a throwaway price. Catches

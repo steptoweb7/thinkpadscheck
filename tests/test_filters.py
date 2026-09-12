@@ -101,6 +101,46 @@ def test_excludes_hdd_only():
     assert passes_hard_filters(listing, CONFIG) is False
 
 
+# --- T480/T490 only ever shipped with 8th/9th-gen CPUs -- the general
+# gen-11+ requirement would silently exclude them forever, no matter the
+# price. User explicitly wants these two older models included too.
+
+
+def test_t480_with_gen8_cpu_passes():
+    listing = qualifying_listing(
+        title="Laptop Lenovo ThinkPad T480 i5-8250U",
+        description="16GB RAM, SSD 512GB",
+    )
+    assert passes_hard_filters(listing, CONFIG) is True
+
+
+def test_t490_with_gen8_cpu_passes():
+    listing = qualifying_listing(
+        title="Laptop Lenovo ThinkPad T490 i7-8665U",
+        description="16GB RAM, SSD 512GB",
+    )
+    assert passes_hard_filters(listing, CONFIG) is True
+
+
+def test_t480_with_gen6_cpu_still_excluded():
+    """The relaxation only covers gen 8/9 -- older than that is still junk."""
+    listing = qualifying_listing(
+        title="Laptop Lenovo ThinkPad T480 i5-6300U",
+        description="16GB RAM, SSD 512GB",
+    )
+    assert passes_hard_filters(listing, CONFIG) is False
+
+
+def test_other_models_still_require_gen11_even_with_gen8_cpu():
+    """The relaxation is T480/T490-specific -- T14 with an 8th-gen CPU
+    must still be excluded."""
+    listing = qualifying_listing(
+        title="Laptop Lenovo ThinkPad T14 i5-8250U",
+        description="16GB RAM, SSD 512GB",
+    )
+    assert passes_hard_filters(listing, CONFIG) is False
+
+
 def test_excludes_over_price():
     listing = qualifying_listing(price=1600)
     assert passes_hard_filters(listing, CONFIG) is False

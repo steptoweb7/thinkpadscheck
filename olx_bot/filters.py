@@ -37,6 +37,12 @@ _CPU_GEN_PATTERNS = [
     r"\bcore ultra [3579]\b",
 ]
 
+# T480/T490 only ever shipped with 8th/9th-gen Intel CPUs -- the general
+# gen-11+ bar would silently exclude them forever regardless of price.
+# User explicitly asked for these two older models to be included too.
+_LEGACY_GEN_MODEL_PATTERNS = [r"\bt480\b", r"\bt490\b"]
+_LEGACY_CPU_GEN_PATTERN = r"\bi[3579]-[89]\d{3}[a-z]?\d?\b"
+
 _PART_OUT_KEYWORDS = [
     "se negociaza separat",
     "pentru restul se negociaza",
@@ -97,7 +103,13 @@ def ram_ok(params: dict, text: str) -> bool:
 
 def cpu_gen_ok(text: str) -> bool:
     normalized = normalize_text(text)
-    return any(re.search(pattern, normalized) for pattern in _CPU_GEN_PATTERNS)
+    if any(re.search(pattern, normalized) for pattern in _CPU_GEN_PATTERNS):
+        return True
+
+    is_legacy_gen_model = any(
+        re.search(pattern, normalized) for pattern in _LEGACY_GEN_MODEL_PATTERNS
+    )
+    return is_legacy_gen_model and bool(re.search(_LEGACY_CPU_GEN_PATTERN, normalized))
 
 
 def storage_ok(params: dict) -> bool:
