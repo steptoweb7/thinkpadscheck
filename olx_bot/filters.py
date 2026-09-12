@@ -36,11 +36,13 @@ _CPU_GEN_PATTERNS = [
 ]
 
 _PART_OUT_KEYWORDS = [
-    "dezmembr",
     "se negociaza separat",
     "pentru restul se negociaza",
+    "restul se negociaza",
     "pretul este pentru carcasa",
     "pretul e pentru carcasa",
+    "pretul este doar pentru",
+    "pretul e doar pentru",
 ]
 
 _CAPACITY_PATTERN = r"\b(\d+(?:\.\d+)?)\s*(gb|tb)\b"
@@ -60,10 +62,16 @@ def contains_excluded_keyword(text: str) -> bool:
 
 
 def is_part_out_listing(text: str) -> bool:
-    """True if the listing is dismembering the machine and selling parts
-    separately (e.g. "dezmembrez", "pretul e pentru carcasa + sursa,
-    restul se negociaza") — the advertised drive isn't actually for sale
-    at the listed price, so it's not a real deal."""
+    """True if the listed price only covers part of the machine and the
+    rest (e.g. the drive) is negotiated separately — the advertised
+    capacity isn't actually for sale at that price.
+
+    Doesn't match on the bare word "dezmembr" alone: a seller offering
+    optional disassembly on request ("la cerere pot sa il dezmembrez")
+    for a complete, normally-priced system is not a part-out listing and
+    was a real false-positive with an earlier version of this check.
+    Only phrases that describe the *price* covering just part of the
+    item count."""
     normalized = normalize_text(text)
     return any(keyword in normalized for keyword in _PART_OUT_KEYWORDS)
 

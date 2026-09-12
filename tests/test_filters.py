@@ -334,6 +334,19 @@ def test_ssd_deal_ignores_specs_entirely():
     assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
 
 
+def test_ssd_deal_does_not_exclude_optional_disassembly_offer():
+    """A seller offering to disassemble a complete, normally-priced system
+    on request ("dezmembrez la cerere") is NOT the same as a part-out
+    listing where the price only covers part of the machine — must not
+    false-positive on the bare word "dezmembr"."""
+    listing = ssd_deal_listing(
+        title="Laptop HP i5-1035G1, 8GB, 512GB SSD",
+        description="Stare buna, functioneaza perfect. La cerere pot sa il si dezmembrez.",
+        price=700,
+    )
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is True
+
+
 def test_ssd_deal_excludes_part_out_listing():
     """Real bug: title mentions "1000GB SSD" but description makes clear the
     price is for the case+PSU only and everything else (including the drive)
