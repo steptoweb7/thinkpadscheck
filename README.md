@@ -74,7 +74,7 @@ category URLs configured in `settings.yaml` (`filter_url` for the
 business rule; `ssd_deal.filter_urls` for the business rule's SSD-deal,
 specific-model, and enterprise-model rules — those three share the same
 fetched listings, no separate scrape). Each category is sorted
-newest-first and only `pages_per_category` pages (default 3, ~50
+newest-first and only `pages_per_category` pages (default 5, ~50
 listings each) are fetched per run — a category with more new listings
 than that within an hour will miss the oldest of them. Raise
 `pages_per_category` in `settings.yaml` for deeper coverage at the cost

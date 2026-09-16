@@ -10,8 +10,8 @@ db_path: "seen_listings.db"
 # How many OLX result pages (~50 listings each) to scan per category,
 # per run, sorted newest-first. Default 1 (page 1 only) can silently
 # miss listings if more than ~50 new ones land in a category within an
-# hour. 3 covers ~150 listings/category without adding much request load.
-pages_per_category: 3
+# hour. 5 covers ~250 listings/category without adding much request load.
+pages_per_category: 5
 
 # Prices below reflect real OLX private-seller asking prices checked
 # 2026-09-12 for a typical qualifying spec (16GB RAM, matching SSD size,

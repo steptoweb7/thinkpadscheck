@@ -384,7 +384,7 @@ per run (~50 listings, OLX's default page size, sorted newest-first) —
 any category with more new listings than that within an hour silently
 lost the oldest of them off page 2+.
 
-`pages_per_category` (settings.yaml, default 3) controls how many pages
+`pages_per_category` (settings.yaml, default 5) controls how many pages
 of each category get fetched per run. `_paginated_url(base_url, page)`
 returns `base_url` unchanged for page 1 (so the default single-fetch
 behavior and every existing test caller are untouched) and otherwise
