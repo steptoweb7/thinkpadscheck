@@ -437,6 +437,14 @@ def test_ssd_deal_excludes_part_out_listing():
     assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
 
 
+def test_ssd_deal_excludes_bulk_lot_listing():
+    listing = ssd_deal_listing(
+        description="Se vand toate, nu vand la bucata, se vinde tot lotul.",
+        price=600,
+    )
+    assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
+
+
 # --- third, independent rule: specific known-good OEM SSD models,
 # regardless of host system, tiered price by capacity.
 
@@ -524,6 +532,14 @@ def test_specific_ssd_deal_excludes_part_out_listing():
     assert passes_specific_ssd_filter(listing, {}) is False
 
 
+def test_specific_ssd_deal_excludes_bulk_lot_listing():
+    listing = specific_ssd_listing(
+        description="Se vand toate, nu vand la bucata, se vinde tot lotul.",
+        price=180,
+    )
+    assert passes_specific_ssd_filter(listing, {}) is False
+
+
 def test_specific_ssd_deal_excludes_when_capacity_unknown():
     listing = specific_ssd_listing(title="SSD Kioxia XG8", description="")
     assert passes_specific_ssd_filter(listing, {}) is False
@@ -604,6 +620,36 @@ def test_enterprise_ssd_deal_excludes_part_out_listing():
         description="Dezmembrez. Pretul e doar pentru carcasa, restul se negociaza."
     )
     assert passes_enterprise_ssd_filter(listing, {}) is False
+
+
+def test_enterprise_ssd_deal_excludes_bulk_lot_listing():
+    """Real bug: a seller listed 12 drives at once ("se vand toate, nu
+    vand la bucata, se vinde tot lotul") with the OLX price field showing
+    just one drive's per-unit reference price (600 lei) -- but you can't
+    actually buy a single drive for that price, only the whole batch."""
+    listing = enterprise_ssd_listing(
+        title="#OFERTAAA# SSD Intel 1.92TB SATA 6.0Gb/s, Intel D3-S4610 Series SERVER Diferite capacitati",
+        description=(
+            "Se vand toate !! Nu vand la bucata !! Repet...se vinde tot lotul !! "
+            "6 x Intel SSD D3-S4510 Series 1.92 TB - 600 lei bucata"
+        ),
+        price=600,
+    )
+    assert passes_enterprise_ssd_filter(listing, {}) is False
+
+
+def test_enterprise_ssd_deal_excludes_bulk_lot_alternate_phrasings():
+    """Sellers phrase "it's a batch, not per-unit" in many ways -- a few
+    common real-world variants beyond the exact one first caught."""
+    variants = [
+        "Nu se vinde separat, doar tot lotul.",
+        "Vand doar pachetul complet, nu separat.",
+        "Nu vand pe bucati, doar impreuna.",
+        "Pretul e pentru tot lotul intreg, nu se separa.",
+    ]
+    for description in variants:
+        listing = enterprise_ssd_listing(description=description)
+        assert passes_enterprise_ssd_filter(listing, {}) is False, description
 
 
 def test_enterprise_ssd_deal_excludes_when_capacity_unknown():

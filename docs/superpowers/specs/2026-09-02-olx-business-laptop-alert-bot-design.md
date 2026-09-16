@@ -291,6 +291,15 @@ Rules (all AND'd):
 1. Private seller only (`is_business` false).
 2. Not a part-out listing (`is_part_out_listing`, same check as the
    SSD-deal rule).
+2b. Not a bulk-lot listing (`is_bulk_lot_listing`) — real bug: a listing
+    selling 12 enterprise drives as one batch ("se vand toate, nu vand
+    la bucata, se vinde tot lotul") still had the OLX price field
+    showing just one drive's per-unit reference price, which would
+    otherwise look like a single drive for sale at that price. Applies
+    to all three SSD-related rules (SSD-deal, specific-model,
+    enterprise). Keyword-based, same limitation as the other exclusion
+    lists in `filters.py` — extend `_BULK_LOT_KEYWORDS` as new real
+    phrasings turn up.
 3. `matches_specific_ssd_model` finds one of the six model name
    substrings (case-insensitive, diacritics-normalized) anywhere in
    `title + " " + description`. Plain substring match — these are

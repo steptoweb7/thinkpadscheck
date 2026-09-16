@@ -53,6 +53,35 @@ _PART_OUT_KEYWORDS = [
     "pretul e doar pentru",
 ]
 
+_BULK_LOT_KEYWORDS = [
+    "nu vand la bucata",
+    "nu vand pe bucati",
+    "nu se vinde la bucata",
+    "nu se vinde pe bucati",
+    "nu vand individual",
+    "nu vand separat",
+    "nu se vinde separat",
+    "nu se vand separat",
+    "nu se separa",
+    "nu dezmembrez lotul",
+    "se vinde tot lotul",
+    "se vinde doar lotul",
+    "se vinde doar tot lotul",
+    "vand tot lotul",
+    "vand doar tot lotul",
+    "doar tot lotul",
+    "lotul intreg",
+    "tot lotul",
+    "vand doar pachetul",
+    "se vinde ca pachet",
+    "doar pachetul complet",
+    "doar pachet complet",
+    "se vand doar impreuna",
+    "vand doar impreuna",
+    "doar en-gros",
+    "doar angro",
+]
+
 _CAPACITY_BUCKETS = [128, 256, 512, 1000, 2000, 4000, 8000]
 
 # Specific-model SSD deal: known-good OEM NVMe chips (found stock in
@@ -118,6 +147,22 @@ def is_part_out_listing(text: str) -> bool:
     item count."""
     normalized = normalize_text(text)
     return any(keyword in normalized for keyword in _PART_OUT_KEYWORDS)
+
+
+def is_bulk_lot_listing(text: str) -> bool:
+    """True if the seller is selling multiple drives as one batch, not
+    per unit -- the OLX price/capacity fields then don't describe a
+    single item you can actually buy at that price. Real bug: a listing
+    for 12 drives at once still showed one drive's per-unit reference
+    price in the structured price field ("se vand toate, nu vand la
+    bucata, se vinde tot lotul").
+
+    Keyword list, same limitation as _EXCLUDED_KEYWORDS/_PART_OUT_KEYWORDS
+    elsewhere in this file: sellers phrase this in many ways and this
+    list can't be exhaustive. Extend _BULK_LOT_KEYWORDS when a new real
+    phrasing slips through."""
+    normalized = normalize_text(text)
+    return any(keyword in normalized for keyword in _BULK_LOT_KEYWORDS)
 
 
 def matches_business_model(text: str) -> bool:
@@ -244,6 +289,8 @@ def passes_ssd_deal_filter(listing: dict, config: dict, conn=None) -> bool:
     text = f"{listing.get('title', '')} {listing.get('description', '')}"
     if is_part_out_listing(text):
         return False
+    if is_bulk_lot_listing(text):
+        return False
 
     capacity = extract_ssd_capacity_gb(text)
     if capacity is None or capacity < ssd_config.get("min_ssd_gb", 512):
@@ -308,6 +355,8 @@ def passes_specific_ssd_filter(listing: dict, config: dict) -> bool:
     text = f"{listing.get('title', '')} {listing.get('description', '')}"
     if is_part_out_listing(text):
         return False
+    if is_bulk_lot_listing(text):
+        return False
 
     if matches_specific_ssd_model(text) is None:
         return False
@@ -346,6 +395,8 @@ def passes_enterprise_ssd_filter(listing: dict, config: dict) -> bool:
 
     text = f"{listing.get('title', '')} {listing.get('description', '')}"
     if is_part_out_listing(text):
+        return False
+    if is_bulk_lot_listing(text):
         return False
 
     if matches_enterprise_ssd_model(text) is None:
