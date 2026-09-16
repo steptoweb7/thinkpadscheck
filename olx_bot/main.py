@@ -70,6 +70,25 @@ def _clear_down_alert_marker() -> None:
         os.remove(DOWN_ALERT_SENT_PATH)
 
 
+def _paginated_url(base_url: str, page: int) -> str:
+    if page <= 1:
+        return base_url
+    separator = "&" if "?" in base_url else "?"
+    return f"{base_url}{separator}page={page}"
+
+
+def _fetch_all_pages(base_url: str, pages: int) -> list:
+    """Fetches `pages` pages of one category (OLX's own listing pages,
+    not this bot's pagination) -- by default only page 1 (~50 listings)
+    is scanned, which can silently miss older-but-still-new listings
+    when more than that many appear within an hour."""
+    listings = []
+    for page in range(1, pages + 1):
+        html = fetch_html(_paginated_url(base_url, page))
+        listings.extend(parse_listings(html))
+    return listings
+
+
 def run(config_path: str = "config.yaml") -> None:
     logging.basicConfig(
         handlers=[
@@ -85,14 +104,14 @@ def run(config_path: str = "config.yaml") -> None:
     ssd_deal_config = config.get("ssd_deal", {})
     ssd_deal_urls = ssd_deal_config.get("filter_urls", [])
 
+    pages = config.get("pages_per_category", 1)
+
     try:
-        html = fetch_html(config["filter_url"])
-        listings = parse_listings(html)
+        listings = _fetch_all_pages(config["filter_url"], pages)
 
         ssd_deal_listings = []
         for ssd_url in ssd_deal_urls:
-            ssd_html = fetch_html(ssd_url)
-            ssd_deal_listings.extend(parse_listings(ssd_html))
+            ssd_deal_listings.extend(_fetch_all_pages(ssd_url, pages))
     except Exception:
         logging.exception("Scrape/parse failed")
         failures = _read_failure_count() + 1

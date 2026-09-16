@@ -540,3 +540,100 @@ def test_run_enterprise_ssd_is_idempotent_on_second_pass(tmp_path, monkeypatch):
         main_module.run(config_path)
 
     assert mock_send_enterprise.call_count == 1
+
+
+def test_run_scans_multiple_pages_per_category_when_configured(tmp_path, monkeypatch):
+    """Default is page 1 only (~50 listings); pages_per_category lets a
+    category's older-but-still-new listings on page 2+ get scanned too."""
+    page1_state = {
+        "listing": {
+            "listing": {
+                "ads": [
+                    {
+                        "id": 900,
+                        "title": "Laptop Lenovo ThinkPad T14 i5-1145G7",
+                        "description": "16GB RAM, SSD 512GB",
+                        "url": "https://www.olx.ro/d/oferta/test-900.html",
+                        "createdTime": "2026-09-16T10:00:00+03:00",
+                        "location": {"pathName": "Cluj"},
+                        "price": {"regularPrice": {"value": 1200}},
+                        "params": [
+                            {"key": "tip_stocare", "value": "SSD"},
+                            {"key": "capacitate_memorie_ram", "value": "> 16 GB"},
+                        ],
+                    }
+                ]
+            }
+        }
+    }
+    page2_state = {
+        "listing": {
+            "listing": {
+                "ads": [
+                    {
+                        "id": 901,
+                        "title": "Laptop Lenovo ThinkPad T14 i5-1145G7",
+                        "description": "16GB RAM, SSD 512GB",
+                        "url": "https://www.olx.ro/d/oferta/test-901.html",
+                        "createdTime": "2026-09-16T09:00:00+03:00",
+                        "location": {"pathName": "Iasi"},
+                        "price": {"regularPrice": {"value": 1250}},
+                        "params": [
+                            {"key": "tip_stocare", "value": "SSD"},
+                            {"key": "capacitate_memorie_ram", "value": "> 16 GB"},
+                        ],
+                    }
+                ]
+            }
+        }
+    }
+    page1_html = f"<html><script>window.__PRERENDERED_STATE__ = {json.dumps(json.dumps(page1_state))};\n</script></html>"
+    page2_html = f"<html><script>window.__PRERENDERED_STATE__ = {json.dumps(json.dumps(page2_state))};\n</script></html>"
+
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text(
+        f"""
+filter_url: "https://example.com/search"
+max_price: 1500
+pages_per_category: 2
+db_path: "{(tmp_path / 'seen.db').as_posix()}"
+reference_prices:
+  "ThinkPad T14": 2200
+gmail:
+  address: "sender@gmail.com"
+  app_password: "pw"
+  to: "receiver@gmail.com"
+"""
+    )
+    monkeypatch.chdir(tmp_path)
+
+    def fake_fetch(url, *args, **kwargs):
+        if url == "https://example.com/search":
+            return page1_html
+        if url == "https://example.com/search?page=2":
+            return page2_html
+        raise AssertionError(f"unexpected URL: {url}")
+
+    with patch("olx_bot.main.fetch_html", side_effect=fake_fetch), patch(
+        "olx_bot.main.send_email"
+    ) as mock_send_email:
+        main_module.run(str(config_path))
+
+    assert mock_send_email.call_count == 2
+    sent_ids = {call.args[0]["id"] for call in mock_send_email.call_args_list}
+    assert sent_ids == {"900", "901"}
+
+
+def test_paginated_url_page_1_returns_base_url_unchanged():
+    assert main_module._paginated_url("https://example.com/x?a=1", 1) == "https://example.com/x?a=1"
+
+
+def test_paginated_url_appends_with_ampersand_when_query_exists():
+    url = main_module._paginated_url(
+        "https://www.olx.ro/x/?search%5Border%5D=created_at%3Adesc", 2
+    )
+    assert url == "https://www.olx.ro/x/?search%5Border%5D=created_at%3Adesc&page=2"
+
+
+def test_paginated_url_appends_with_question_mark_when_no_query():
+    assert main_module._paginated_url("https://example.com/x", 3) == "https://example.com/x?page=3"

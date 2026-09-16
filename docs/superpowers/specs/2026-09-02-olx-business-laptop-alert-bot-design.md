@@ -375,6 +375,32 @@ other wholesale):
   app_password, to). Never committed; a value defined in both files
   lets `config.yaml` win, for a one-off local override without a push.
 
+## Coverage / pagination (`_fetch_all_pages`, `_paginated_url` in `main.py`)
+
+Added after the user asked how the bot actually scans and it turned out
+the answer was "only page 1 of a fixed URL list, no site-wide search."
+`fetch_html` originally hit each configured category URL exactly once
+per run (~50 listings, OLX's default page size, sorted newest-first) —
+any category with more new listings than that within an hour silently
+lost the oldest of them off page 2+.
+
+`pages_per_category` (settings.yaml, default 3) controls how many pages
+of each category get fetched per run. `_paginated_url(base_url, page)`
+returns `base_url` unchanged for page 1 (so the default single-fetch
+behavior and every existing test caller are untouched) and otherwise
+appends `page=N` with `&` if the URL already has a `?query`, or `?` if
+it doesn't. `_fetch_all_pages` loops pages 1..N and concatenates
+`parse_listings` results. Applied uniformly to both `config["filter_url"]`
+(business rule) and every URL in `ssd_deal.filter_urls` (feeds the
+SSD-deal, specific-model, and enterprise-model rules, which all share
+this same fetch — no separate scrape per rule).
+
+No dedicated OLX category for "server/enterprise storage" was found
+when checking live category pages — enterprise SSD listings (per the
+real bulk-lot example caught earlier) end up under the same
+`componente-laptop-pc/hard-disk-uri` category already scanned, not a
+separate one — so only pagination was added, not new category URLs.
+
 ```yaml
 # settings.yaml (tracked)
 filter_url: "https://www.olx.ro/...&search[filter_float_price:to]=1800&..."

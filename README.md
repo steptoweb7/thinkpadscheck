@@ -67,6 +67,19 @@ that's in `settings.yaml`, the `config.yaml` value wins (for a one-off
 local override without touching git), but this shouldn't normally be
 needed.
 
+## Coverage: which categories/pages actually get scanned
+
+The bot is NOT a full-site OLX search — it only scans the fixed list of
+category URLs configured in `settings.yaml` (`filter_url` for the
+business rule; `ssd_deal.filter_urls` for the business rule's SSD-deal,
+specific-model, and enterprise-model rules — those three share the same
+fetched listings, no separate scrape). Each category is sorted
+newest-first and only `pages_per_category` pages (default 3, ~50
+listings each) are fetched per run — a category with more new listings
+than that within an hour will miss the oldest of them. Raise
+`pages_per_category` in `settings.yaml` for deeper coverage at the cost
+of more requests per run.
+
 ## Standalone SSD/HDD deals use a self-learning market price
 
 For bare-drive listings (the `componente-laptop-pc/hard-disk-uri`
