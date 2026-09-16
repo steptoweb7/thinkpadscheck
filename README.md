@@ -55,6 +55,15 @@ Solidigm D3-S4620, Samsung PM897, Samsung PM893. Same price ceiling:
 512GB up to 200 lei, 1TB up to 400 lei, 2TB+ any price. Model list is
 hardcoded in `olx_bot/filters.py` (`_ENTERPRISE_SSD_MODELS`).
 
+## ThinkPad X1 Yoga with WQHD display (`[X1 Yoga WQHD]` alerts)
+
+A fifth, independent rule flags any ThinkPad X1 Yoga listing (any
+generation) that mentions a WQHD (2560x1440) display, at any price —
+most X1 Yoga units on the market are the base FHD panel, so this
+targets the rarer higher-resolution config specifically. Model/keyword
+list hardcoded in `olx_bot/filters.py` (`_X1_YOGA_MODEL_PATTERN`,
+`_WQHD_KEYWORDS`).
+
 ## Changing settings (`settings.yaml`)
 
 `settings.yaml` at the project root holds every non-secret setting:

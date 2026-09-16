@@ -18,12 +18,14 @@ from olx_bot.filters import (
     passes_hard_filters,
     passes_specific_ssd_filter,
     passes_ssd_deal_filter,
+    passes_x1_yoga_wqhd_filter,
 )
 from olx_bot.notifier import (
     send_email,
     send_enterprise_ssd_email,
     send_specific_ssd_email,
     send_ssd_deal_email,
+    send_x1_yoga_wqhd_email,
 )
 from olx_bot.parser import parse_listings
 from olx_bot.scorer import compute_score
@@ -320,6 +322,43 @@ def run(config_path: str = "config.yaml") -> None:
                 )
             except Exception:
                 logging.exception("Failed processing enterprise-ssd listing %s", ad_id)
+
+        seen_x1_yoga_wqhd_ids_this_run = set()
+        for listing in listings + ssd_deal_listings:
+            ad_id = listing["id"]
+            if ad_id in seen_x1_yoga_wqhd_ids_this_run:
+                continue
+            seen_x1_yoga_wqhd_ids_this_run.add(ad_id)
+
+            db_key = f"x1_yoga_wqhd:{ad_id}"
+            try:
+                if is_seen(conn, db_key):
+                    continue
+                if not passes_x1_yoga_wqhd_filter(listing, config):
+                    continue
+
+                send_x1_yoga_wqhd_email(listing, config["gmail"])
+                sent_count += 1
+                now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                mark_seen(conn, db_key, listing["title"], listing["price"], None, now)
+                append_alert(
+                    config.get("csv_log_path", CSV_LOG_PATH),
+                    {
+                        "timestamp": now,
+                        "rule": "x1_yoga_wqhd",
+                        "listing_id": ad_id,
+                        "title": listing["title"],
+                        "price_lei": listing["price"],
+                        "model": "",
+                        "score_pct": "",
+                        "ssd_capacity_gb": "",
+                        "location": listing["location"],
+                        "posted_at": listing["created_time"],
+                        "url": listing["url"],
+                    },
+                )
+            except Exception:
+                logging.exception("Failed processing x1-yoga-wqhd listing %s", ad_id)
     finally:
         conn.close()
 

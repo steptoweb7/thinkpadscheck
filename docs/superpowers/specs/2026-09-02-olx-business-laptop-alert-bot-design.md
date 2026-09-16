@@ -338,6 +338,23 @@ P4610, Micron 5400 MAX, Solidigm D3-S4620, Samsung PM897, Samsung PM893
 `enterprise_ssd:<id>` key prefix. Distinct email subject
 `[SSD Enterprise Level]` (`notifier.build_enterprise_ssd_email`).
 
+## Fifth rule: ThinkPad X1 Yoga with WQHD display (`passes_x1_yoga_wqhd_filter`)
+
+Added after a conversation about which ThinkPad has the best display
+("cel mai WOW") — the X1 Yoga's optional WQHD (2560x1440) panel (also
+available on the T480/T480s and X1 Carbon Gen 6) came up, and a live
+OLX check found only one listing on the whole site explicitly
+mentioning it. User asked to be alerted whenever another one appears.
+
+Rules (AND'd): private seller only; `matches_x1_yoga_wqhd` requires
+BOTH the model pattern `\bx1 ?yoga\b` AND one of the resolution
+keywords `wqhd`, `2560x1440`, `2560 x 1440`, `2560*1440` anywhere in
+`title + " " + description` (`_X1_YOGA_MODEL_PATTERN`, `_WQHD_KEYWORDS`
+in `filters.py`). No price ceiling — alerts at any price, any X1 Yoga
+generation, per explicit user request. Deduped via `x1_yoga_wqhd:<id>`.
+Distinct email subject `[X1 Yoga WQHD]`
+(`notifier.build_x1_yoga_wqhd_email`).
+
 ## Notification (`notifier.py`)
 
 - Gmail SMTP (`smtp.gmail.com:587`, STARTTLS) using an app password

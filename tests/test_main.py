@@ -637,3 +637,87 @@ def test_paginated_url_appends_with_ampersand_when_query_exists():
 
 def test_paginated_url_appends_with_question_mark_when_no_query():
     assert main_module._paginated_url("https://example.com/x", 3) == "https://example.com/x?page=3"
+
+
+def test_run_sends_x1_yoga_wqhd_email_for_matching_listing(tmp_path, monkeypatch):
+    state = {
+        "listing": {
+            "listing": {
+                "ads": [
+                    {
+                        "id": 950,
+                        "title": "Lenovo ThinkPad X1 Yoga Gen 2 i5-7200U WQHD Touch",
+                        "description": "Ecran WQHD 2560x1440, stare foarte buna",
+                        "url": "https://www.olx.ro/d/oferta/test-950.html",
+                        "createdTime": "2026-09-16T08:00:00+03:00",
+                        "location": {"pathName": "Iasi"},
+                        "price": {"regularPrice": {"value": 650}},
+                        "params": [{"key": "tip_stocare", "value": "SSD"}],
+                    }
+                ]
+            }
+        }
+    }
+    html = f"<html><script>window.__PRERENDERED_STATE__ = {json.dumps(json.dumps(state))};\n</script></html>"
+
+    monkeypatch.chdir(tmp_path)
+    config_path = _write_config_with_ssd_deal(tmp_path)
+
+    with patch(
+        "olx_bot.main.fetch_html", side_effect=_fetch_html_by_url(html, _fake_ssd_html())
+    ), patch("olx_bot.main.send_email"), patch("olx_bot.main.send_ssd_deal_email"), patch(
+        "olx_bot.main.send_specific_ssd_email"
+    ), patch(
+        "olx_bot.main.send_enterprise_ssd_email"
+    ), patch(
+        "olx_bot.main.send_x1_yoga_wqhd_email"
+    ) as mock_send_x1:
+        main_module.run(config_path)
+
+    assert mock_send_x1.call_count == 1
+    (listing_arg, _gmail_arg), _ = mock_send_x1.call_args
+    assert listing_arg["id"] == "950"
+
+    with open(tmp_path / "alerts_log.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    x1_rows = [r for r in rows if r["rule"] == "x1_yoga_wqhd"]
+    assert len(x1_rows) == 1
+
+
+def test_run_x1_yoga_wqhd_is_idempotent_on_second_pass(tmp_path, monkeypatch):
+    state = {
+        "listing": {
+            "listing": {
+                "ads": [
+                    {
+                        "id": 951,
+                        "title": "Lenovo ThinkPad X1 Yoga Gen 3 WQHD",
+                        "description": "2560x1440",
+                        "url": "https://www.olx.ro/d/oferta/test-951.html",
+                        "createdTime": "2026-09-16T08:00:00+03:00",
+                        "location": {"pathName": "Cluj"},
+                        "price": {"regularPrice": {"value": 900}},
+                        "params": [],
+                    }
+                ]
+            }
+        }
+    }
+    html = f"<html><script>window.__PRERENDERED_STATE__ = {json.dumps(json.dumps(state))};\n</script></html>"
+
+    monkeypatch.chdir(tmp_path)
+    config_path = _write_config_with_ssd_deal(tmp_path)
+
+    with patch(
+        "olx_bot.main.fetch_html", side_effect=_fetch_html_by_url(html, _fake_ssd_html())
+    ), patch("olx_bot.main.send_email"), patch("olx_bot.main.send_ssd_deal_email"), patch(
+        "olx_bot.main.send_specific_ssd_email"
+    ), patch(
+        "olx_bot.main.send_enterprise_ssd_email"
+    ), patch(
+        "olx_bot.main.send_x1_yoga_wqhd_email"
+    ) as mock_send_x1:
+        main_module.run(config_path)
+        main_module.run(config_path)
+
+    assert mock_send_x1.call_count == 1

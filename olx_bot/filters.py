@@ -417,6 +417,30 @@ def passes_enterprise_ssd_filter(listing: dict, config: dict) -> bool:
     return price <= threshold
 
 
+# ThinkPad X1 Yoga specifically configured with the WQHD (2560x1440)
+# display option -- most units on the market are the base FHD panel, so
+# this needs its own model+feature alert rather than relying on the
+# general business rule. No price ceiling: user wants to know about any
+# one that shows up, whatever it costs.
+_X1_YOGA_MODEL_PATTERN = r"\bx1 ?yoga\b"
+_WQHD_KEYWORDS = ["wqhd", "2560x1440", "2560 x 1440", "2560*1440"]
+
+
+def matches_x1_yoga_wqhd(text: str) -> bool:
+    normalized = normalize_text(text)
+    if not re.search(_X1_YOGA_MODEL_PATTERN, normalized):
+        return False
+    return any(keyword in normalized for keyword in _WQHD_KEYWORDS)
+
+
+def passes_x1_yoga_wqhd_filter(listing: dict, config: dict) -> bool:
+    if listing.get("is_business"):
+        return False
+
+    text = f"{listing.get('title', '')} {listing.get('description', '')}"
+    return matches_x1_yoga_wqhd(text)
+
+
 def passes_hard_filters(listing: dict, config: dict) -> bool:
     if listing.get("is_business"):
         return False

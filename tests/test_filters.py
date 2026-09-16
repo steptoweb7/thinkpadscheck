@@ -4,10 +4,12 @@ from olx_bot.filters import (
     extract_ssd_capacity_gb,
     matches_enterprise_ssd_model,
     matches_specific_ssd_model,
+    matches_x1_yoga_wqhd,
     passes_enterprise_ssd_filter,
     passes_hard_filters,
     passes_specific_ssd_filter,
     passes_ssd_deal_filter,
+    passes_x1_yoga_wqhd_filter,
     specific_ssd_price_threshold,
 )
 
@@ -659,3 +661,54 @@ def test_enterprise_ssd_deal_excludes_bulk_lot_alternate_phrasings():
 def test_enterprise_ssd_deal_excludes_when_capacity_unknown():
     listing = enterprise_ssd_listing(title="SSD Intel DC S3610", description="")
     assert passes_enterprise_ssd_filter(listing, {}) is False
+
+
+# --- fifth, independent rule: ThinkPad X1 Yoga specifically with the
+# WQHD (2560x1440) display option, any price.
+
+
+def x1_yoga_wqhd_listing(**overrides):
+    listing = {
+        "title": "Lenovo ThinkPad X1 Yoga Gen 3 i7 WQHD Touch",
+        "description": "Ecran WQHD 2560x1440, stare foarte buna",
+        "price": 900,
+        "is_business": False,
+        "params": {},
+    }
+    listing.update(overrides)
+    return listing
+
+
+def test_matches_x1_yoga_wqhd_true_for_model_and_resolution():
+    assert matches_x1_yoga_wqhd("Lenovo ThinkPad X1 Yoga Gen 2, ecran WQHD 2560x1440") is True
+
+
+def test_matches_x1_yoga_wqhd_false_without_wqhd_mention():
+    assert matches_x1_yoga_wqhd("Lenovo ThinkPad X1 Yoga Gen 3 i7 FHD") is False
+
+
+def test_matches_x1_yoga_wqhd_false_without_x1_yoga_mention():
+    assert matches_x1_yoga_wqhd("Laptop cu ecran WQHD 2560x1440") is False
+
+
+def test_matches_x1_yoga_wqhd_recognizes_resolution_written_with_star():
+    assert matches_x1_yoga_wqhd("Lenovo ThinkPad X1 Yoga LCD 2560*1440") is True
+
+
+def test_x1_yoga_wqhd_passes_at_any_price():
+    cheap = x1_yoga_wqhd_listing(price=50)
+    expensive = x1_yoga_wqhd_listing(price=9000)
+    assert passes_x1_yoga_wqhd_filter(cheap, {}) is True
+    assert passes_x1_yoga_wqhd_filter(expensive, {}) is True
+
+
+def test_x1_yoga_wqhd_excludes_business_seller():
+    listing = x1_yoga_wqhd_listing(is_business=True)
+    assert passes_x1_yoga_wqhd_filter(listing, {}) is False
+
+
+def test_x1_yoga_wqhd_excludes_fhd_x1_yoga():
+    listing = x1_yoga_wqhd_listing(
+        title="Lenovo ThinkPad X1 Yoga Gen 3 i7", description="Ecran FHD 1920x1080"
+    )
+    assert passes_x1_yoga_wqhd_filter(listing, {}) is False

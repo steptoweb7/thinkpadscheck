@@ -5,10 +5,12 @@ from olx_bot.notifier import (
     build_enterprise_ssd_email,
     build_specific_ssd_email,
     build_ssd_deal_email,
+    build_x1_yoga_wqhd_email,
     send_email,
     send_enterprise_ssd_email,
     send_specific_ssd_email,
     send_ssd_deal_email,
+    send_x1_yoga_wqhd_email,
 )
 
 LISTING = {
@@ -145,6 +147,25 @@ def test_send_enterprise_ssd_email_uses_smtp_with_starttls():
     with patch("olx_bot.notifier.smtplib.SMTP") as mock_smtp_cls:
         smtp_instance = mock_smtp_cls.return_value.__enter__.return_value
         send_enterprise_ssd_email(LISTING, 480, "s3610", GMAIL_CONFIG)
+
+        mock_smtp_cls.assert_called_once_with("smtp.gmail.com", 587, timeout=15)
+        smtp_instance.starttls.assert_called_once()
+        smtp_instance.login.assert_called_once_with("sender@gmail.com", "app-pass")
+        assert smtp_instance.sendmail.call_count == 1
+
+
+def test_build_x1_yoga_wqhd_email_subject_and_body():
+    msg = build_x1_yoga_wqhd_email(LISTING)
+    assert msg["Subject"].startswith("[X1 Yoga WQHD]")
+    assert str(LISTING["price"]) in msg["Subject"]
+    body = msg.get_payload(decode=True).decode("utf-8")
+    assert LISTING["url"] in body
+
+
+def test_send_x1_yoga_wqhd_email_uses_smtp_with_starttls():
+    with patch("olx_bot.notifier.smtplib.SMTP") as mock_smtp_cls:
+        smtp_instance = mock_smtp_cls.return_value.__enter__.return_value
+        send_x1_yoga_wqhd_email(LISTING, GMAIL_CONFIG)
 
         mock_smtp_cls.assert_called_once_with("smtp.gmail.com", 587, timeout=15)
         smtp_instance.starttls.assert_called_once()
