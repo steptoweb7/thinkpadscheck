@@ -188,7 +188,9 @@ def run(config_path: str = "config.yaml") -> None:
                 capacity_gb = extract_ssd_capacity_gb(
                     f"{listing['title']} {listing['description']}"
                 )
-                send_ssd_deal_email(listing, capacity_gb, config["gmail"])
+                send_ssd_deal_email(
+                    listing, capacity_gb, config["gmail"], is_standalone_drive(params)
+                )
                 sent_count += 1
                 now = datetime.datetime.now(datetime.timezone.utc).isoformat()
                 mark_seen(conn, db_key, listing["title"], listing["price"], None, now)

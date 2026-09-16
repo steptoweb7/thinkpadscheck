@@ -66,7 +66,7 @@ def test_build_email_with_romanian_diacritics():
 
 
 def test_build_ssd_deal_email_subject_and_body():
-    msg = build_ssd_deal_email(LISTING, 512)
+    msg = build_ssd_deal_email(LISTING, 512, is_standalone_drive=False)
     assert "512GB" in msg["Subject"]
     assert "SSD" in msg["Subject"]
     assert str(LISTING["price"]) in msg["Subject"]
@@ -75,10 +75,25 @@ def test_build_ssd_deal_email_subject_and_body():
     assert "512" in body
 
 
+def test_build_ssd_deal_email_standalone_drive_uses_ssd_deal_label():
+    """A bare-drive listing keeps the original [OLX SSD Deal] subject."""
+    msg = build_ssd_deal_email(LISTING, 512, is_standalone_drive=True)
+    assert msg["Subject"].startswith("[OLX SSD Deal]")
+
+
+def test_build_ssd_deal_email_laptop_uses_distinct_label():
+    """A laptop/PC listing that qualified via the SSD-deal rule must NOT
+    look identical to a bare-drive deal in the inbox -- real complaint:
+    user couldn't tell laptops and bare SSDs apart by subject alone."""
+    msg = build_ssd_deal_email(LISTING, 512, is_standalone_drive=False)
+    assert msg["Subject"].startswith("[OLX Laptop SSD Deal]")
+    assert not msg["Subject"].startswith("[OLX SSD Deal]")
+
+
 def test_send_ssd_deal_email_uses_smtp_with_starttls():
     with patch("olx_bot.notifier.smtplib.SMTP") as mock_smtp_cls:
         smtp_instance = mock_smtp_cls.return_value.__enter__.return_value
-        send_ssd_deal_email(LISTING, 1000, GMAIL_CONFIG)
+        send_ssd_deal_email(LISTING, 1000, GMAIL_CONFIG, is_standalone_drive=False)
 
         mock_smtp_cls.assert_called_once_with("smtp.gmail.com", 587, timeout=15)
         smtp_instance.starttls.assert_called_once()

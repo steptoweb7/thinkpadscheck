@@ -24,8 +24,12 @@ def build_email(listing: dict, model, score_pct) -> MIMEText:
     return msg
 
 
-def build_ssd_deal_email(listing: dict, ssd_gb: int) -> MIMEText:
-    subject = f"[OLX SSD Deal] {listing['title'][:60]} - {listing['price']} lei ({ssd_gb}GB SSD)"
+def build_ssd_deal_email(listing: dict, ssd_gb: int, is_standalone_drive: bool) -> MIMEText:
+    # A bare-drive listing and a full laptop/PC that happens to qualify
+    # via the SSD-deal rule are very different purchases -- a distinct
+    # label keeps them tellable apart in the inbox at a glance.
+    label = "[OLX SSD Deal]" if is_standalone_drive else "[OLX Laptop SSD Deal]"
+    subject = f"{label} {listing['title'][:60]} - {listing['price']} lei ({ssd_gb}GB SSD)"
 
     body = (
         f"Titlu: {listing['title']}\n"
@@ -55,5 +59,7 @@ def send_email(listing: dict, model, score_pct, gmail_config: dict) -> None:
     _send(build_email(listing, model, score_pct), gmail_config)
 
 
-def send_ssd_deal_email(listing: dict, ssd_gb: int, gmail_config: dict) -> None:
-    _send(build_ssd_deal_email(listing, ssd_gb), gmail_config)
+def send_ssd_deal_email(
+    listing: dict, ssd_gb: int, gmail_config: dict, is_standalone_drive: bool
+) -> None:
+    _send(build_ssd_deal_email(listing, ssd_gb, is_standalone_drive), gmail_config)

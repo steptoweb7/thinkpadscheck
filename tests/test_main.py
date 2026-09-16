@@ -261,7 +261,7 @@ def test_run_sends_ssd_deal_email_for_qualifying_listing(tmp_path, monkeypatch):
 
     assert mock_send_email.call_count == 1  # unchanged business pipeline
     assert mock_send_ssd_email.call_count == 1
-    (listing_arg, capacity_arg, gmail_arg), _ = mock_send_ssd_email.call_args
+    (listing_arg, capacity_arg, gmail_arg, _is_standalone_arg), _ = mock_send_ssd_email.call_args
     assert listing_arg["id"] == "333"
 
     with open(tmp_path / "alerts_log.csv", newline="", encoding="utf-8") as f:
@@ -366,5 +366,5 @@ def test_run_learns_standalone_drive_market_price_and_alerts_on_real_discount(tm
         main_module.run(config_path)
 
     assert mock_send_ssd_email.call_count == 1
-    (listing_arg, _capacity_arg, _gmail_arg), _ = mock_send_ssd_email.call_args
+    (listing_arg, _capacity_arg, _gmail_arg, _is_standalone_arg), _ = mock_send_ssd_email.call_args
     assert listing_arg["id"] == "6"

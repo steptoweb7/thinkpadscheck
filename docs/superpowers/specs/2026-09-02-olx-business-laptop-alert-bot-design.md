@@ -267,9 +267,13 @@ Rules (all AND'd):
      being double-counted into the median.
 
 No scoring step — "cheap enough" is binary here (price threshold), not a %
-below a reference. Notification uses a distinct email subject
-(`[OLX SSD Deal]`) so it's visually distinct from `[OLX Deal]` business
-alerts in the inbox.
+below a reference. Notification uses a distinct email subject per listing
+type: `[OLX SSD Deal]` for a bare-drive listing, `[OLX Laptop SSD Deal]`
+for a laptop/PC system that qualified via this rule — a real complaint
+was that both used the identical `[OLX SSD Deal]` subject, making a cheap
+bare SSD and a cheap whole laptop indistinguishable in the inbox without
+opening each email. Either way it's visually distinct from `[OLX Deal]`
+business alerts.
 
 ## Notification (`notifier.py`)
 
