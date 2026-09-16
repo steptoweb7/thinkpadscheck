@@ -12,10 +12,12 @@ from olx_bot.filters import (
     is_part_out_listing,
     is_ssd,
     is_standalone_drive,
+    matches_specific_ssd_model,
     passes_hard_filters,
+    passes_specific_ssd_filter,
     passes_ssd_deal_filter,
 )
-from olx_bot.notifier import send_email, send_ssd_deal_email
+from olx_bot.notifier import send_email, send_specific_ssd_email, send_ssd_deal_email
 from olx_bot.parser import parse_listings
 from olx_bot.scorer import compute_score
 from olx_bot.scraper import fetch_html
@@ -212,6 +214,46 @@ def run(config_path: str = "config.yaml") -> None:
                 )
             except Exception:
                 logging.exception("Failed processing ssd-deal listing %s", ad_id)
+
+        seen_specific_ssd_ids_this_run = set()
+        for listing in listings + ssd_deal_listings:
+            ad_id = listing["id"]
+            if ad_id in seen_specific_ssd_ids_this_run:
+                continue
+            seen_specific_ssd_ids_this_run.add(ad_id)
+
+            db_key = f"specific_ssd:{ad_id}"
+            try:
+                if is_seen(conn, db_key):
+                    continue
+                if not passes_specific_ssd_filter(listing, config):
+                    continue
+
+                text = f"{listing['title']} {listing['description']}"
+                capacity_gb = extract_ssd_capacity_gb(text)
+                model = matches_specific_ssd_model(text)
+                send_specific_ssd_email(listing, capacity_gb, model, config["gmail"])
+                sent_count += 1
+                now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                mark_seen(conn, db_key, listing["title"], listing["price"], None, now)
+                append_alert(
+                    config.get("csv_log_path", CSV_LOG_PATH),
+                    {
+                        "timestamp": now,
+                        "rule": "specific_ssd",
+                        "listing_id": ad_id,
+                        "title": listing["title"],
+                        "price_lei": listing["price"],
+                        "model": model or "",
+                        "score_pct": "",
+                        "ssd_capacity_gb": capacity_gb if capacity_gb is not None else "",
+                        "location": listing["location"],
+                        "posted_at": listing["created_time"],
+                        "url": listing["url"],
+                    },
+                )
+            except Exception:
+                logging.exception("Failed processing specific-ssd listing %s", ad_id)
     finally:
         conn.close()
 

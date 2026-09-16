@@ -2,8 +2,11 @@ from olx_bot.db import init_db, record_price_observation
 from olx_bot.filters import (
     capacity_bucket,
     extract_ssd_capacity_gb,
+    matches_specific_ssd_model,
     passes_hard_filters,
+    passes_specific_ssd_filter,
     passes_ssd_deal_filter,
+    specific_ssd_price_threshold,
 )
 
 CONFIG = {"max_price": 1500}
@@ -430,3 +433,95 @@ def test_ssd_deal_excludes_part_out_listing():
         price=500,
     )
     assert passes_ssd_deal_filter(listing, SSD_CONFIG) is False
+
+
+# --- third, independent rule: specific known-good OEM SSD models,
+# regardless of host system, tiered price by capacity.
+
+
+def specific_ssd_listing(**overrides):
+    listing = {
+        "title": "SSD Kioxia XG8 512GB NVMe",
+        "description": "Scos din laptop functional",
+        "price": 150,
+        "is_business": False,
+        "params": {},
+    }
+    listing.update(overrides)
+    return listing
+
+
+def test_matches_specific_ssd_model_finds_each_known_model():
+    assert matches_specific_ssd_model("SK Hynix PC801 512GB") == "pc801"
+    assert matches_specific_ssd_model("WD PC SN810 1TB") == "sn810"
+    assert matches_specific_ssd_model("Micron 3400 512GB") == "micron 3400"
+    assert matches_specific_ssd_model("Kioxia XG8 2TB") == "xg8"
+    assert matches_specific_ssd_model("Samsung PM981a 512GB") == "pm981a"
+    assert matches_specific_ssd_model("Samsung PM9A1 1TB") == "pm9a1"
+
+
+def test_matches_specific_ssd_model_returns_none_for_unrelated_ssd():
+    assert matches_specific_ssd_model("Samsung 970 EVO Plus 512GB") is None
+
+
+def test_specific_ssd_price_threshold_512gb_is_200():
+    assert specific_ssd_price_threshold(512) == 200
+
+
+def test_specific_ssd_price_threshold_1tb_is_400():
+    assert specific_ssd_price_threshold(1000) == 400
+
+
+def test_specific_ssd_price_threshold_2tb_is_unlimited():
+    assert specific_ssd_price_threshold(2000) is None
+
+
+def test_specific_ssd_price_threshold_below_smallest_tier_falls_back_to_it():
+    assert specific_ssd_price_threshold(256) == 200
+
+
+def test_specific_ssd_deal_512gb_passes_under_threshold():
+    listing = specific_ssd_listing(price=200)
+    assert passes_specific_ssd_filter(listing, {}) is True
+
+
+def test_specific_ssd_deal_512gb_fails_over_threshold():
+    listing = specific_ssd_listing(price=201)
+    assert passes_specific_ssd_filter(listing, {}) is False
+
+
+def test_specific_ssd_deal_1tb_passes_under_threshold():
+    listing = specific_ssd_listing(title="SSD Micron 3400 1TB NVMe", price=400)
+    assert passes_specific_ssd_filter(listing, {}) is True
+
+
+def test_specific_ssd_deal_1tb_fails_over_threshold():
+    listing = specific_ssd_listing(title="SSD Micron 3400 1TB NVMe", price=401)
+    assert passes_specific_ssd_filter(listing, {}) is False
+
+
+def test_specific_ssd_deal_2tb_passes_at_any_price():
+    listing = specific_ssd_listing(title="SSD Samsung PM9A1 2TB NVMe", price=5000)
+    assert passes_specific_ssd_filter(listing, {}) is True
+
+
+def test_specific_ssd_deal_excludes_non_matching_model():
+    listing = specific_ssd_listing(title="SSD Kingston A400 512GB", price=50)
+    assert passes_specific_ssd_filter(listing, {}) is False
+
+
+def test_specific_ssd_deal_excludes_business_seller():
+    listing = specific_ssd_listing(is_business=True)
+    assert passes_specific_ssd_filter(listing, {}) is False
+
+
+def test_specific_ssd_deal_excludes_part_out_listing():
+    listing = specific_ssd_listing(
+        description="Dezmembrez. Pretul e doar pentru carcasa, restul se negociaza."
+    )
+    assert passes_specific_ssd_filter(listing, {}) is False
+
+
+def test_specific_ssd_deal_excludes_when_capacity_unknown():
+    listing = specific_ssd_listing(title="SSD Kioxia XG8", description="")
+    assert passes_specific_ssd_filter(listing, {}) is False

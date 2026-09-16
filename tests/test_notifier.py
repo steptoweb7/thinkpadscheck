@@ -1,6 +1,13 @@
 from unittest.mock import patch
 
-from olx_bot.notifier import build_email, build_ssd_deal_email, send_email, send_ssd_deal_email
+from olx_bot.notifier import (
+    build_email,
+    build_specific_ssd_email,
+    build_ssd_deal_email,
+    send_email,
+    send_specific_ssd_email,
+    send_ssd_deal_email,
+)
 
 LISTING = {
     "title": "Laptop Lenovo ThinkPad T480",
@@ -94,6 +101,27 @@ def test_send_ssd_deal_email_uses_smtp_with_starttls():
     with patch("olx_bot.notifier.smtplib.SMTP") as mock_smtp_cls:
         smtp_instance = mock_smtp_cls.return_value.__enter__.return_value
         send_ssd_deal_email(LISTING, 1000, GMAIL_CONFIG, is_standalone_drive=False)
+
+        mock_smtp_cls.assert_called_once_with("smtp.gmail.com", 587, timeout=15)
+        smtp_instance.starttls.assert_called_once()
+        smtp_instance.login.assert_called_once_with("sender@gmail.com", "app-pass")
+        assert smtp_instance.sendmail.call_count == 1
+
+
+def test_build_specific_ssd_email_subject_and_body():
+    msg = build_specific_ssd_email(LISTING, 512, "xg8")
+    assert msg["Subject"].startswith("[SSD Specific]")
+    assert "512" in msg["Subject"]
+    assert str(LISTING["price"]) in msg["Subject"]
+    body = msg.get_payload(decode=True).decode("utf-8")
+    assert LISTING["url"] in body
+    assert "XG8" in body
+
+
+def test_send_specific_ssd_email_uses_smtp_with_starttls():
+    with patch("olx_bot.notifier.smtplib.SMTP") as mock_smtp_cls:
+        smtp_instance = mock_smtp_cls.return_value.__enter__.return_value
+        send_specific_ssd_email(LISTING, 512, "pm9a1", GMAIL_CONFIG)
 
         mock_smtp_cls.assert_called_once_with("smtp.gmail.com", 587, timeout=15)
         smtp_instance.starttls.assert_called_once()

@@ -55,6 +55,22 @@ _PART_OUT_KEYWORDS = [
 
 _CAPACITY_BUCKETS = [128, 256, 512, 1000, 2000, 4000, 8000]
 
+# Specific-model SSD deal: known-good OEM NVMe chips (found stock in
+# business laptops) worth grabbing on sight, regardless of the host
+# system, as long as the price is right for the capacity.
+_SPECIFIC_SSD_MODELS = [
+    "pc801",
+    "sn810",
+    "micron 3400",
+    "xg8",
+    "pm981a",
+    "pm9a1",
+]
+
+# capacity_bucket -> max price; a bucket at/above the largest key has no
+# price ceiling at all (any price qualifies).
+_SPECIFIC_SSD_PRICE_TIERS = {512: 200, 1000: 400}
+
 _CAPACITY_PATTERN = r"\b(\d+(?:\.\d+)?)\s*(gb|tb)\b"
 _MAX_PLAUSIBLE_CAPACITY_GB = 8000  # 8TB ceiling; larger matches are parsing noise, not real drives
 _STORAGE_KEYWORD_PATTERN = re.compile(r"\b(ssd|hdd)\b")
@@ -227,6 +243,66 @@ def passes_ssd_deal_filter(listing: dict, config: dict, conn=None) -> bool:
 
     max_price = ssd_config.get("max_price", 800)
     return price <= max_price
+
+
+def matches_specific_ssd_model(text: str) -> str | None:
+    """Returns the matched known-good OEM SSD model name (e.g. "xg8"),
+    or None. Plain substring match — these are specific-enough part
+    identifiers (chip/controller codenames) that false positives from
+    unrelated text are not a realistic concern."""
+    normalized = normalize_text(text)
+    for model in _SPECIFIC_SSD_MODELS:
+        if model in normalized:
+            return model
+    return None
+
+
+def specific_ssd_price_threshold(capacity_gb: int) -> float | None:
+    """Max price for a specific-model SSD deal at this capacity, per the
+    tiers in _SPECIFIC_SSD_PRICE_TIERS. None means no ceiling at all --
+    any price qualifies (used for capacities at/above the largest
+    configured tier, e.g. 2TB+, per explicit user request: "de 2 tb orice
+    pret"). Below the smallest tier, the smallest tier's price applies."""
+    bucket = capacity_bucket(capacity_gb)
+    sorted_tiers = sorted(_SPECIFIC_SSD_PRICE_TIERS.items())
+    threshold = sorted_tiers[0][1]
+    for tier_gb, price in sorted_tiers:
+        if bucket >= tier_gb:
+            threshold = price
+        else:
+            break
+
+    largest_gb, _ = sorted_tiers[-1]
+    if bucket > largest_gb:
+        return None
+
+    return threshold
+
+
+def passes_specific_ssd_filter(listing: dict, config: dict) -> bool:
+    if listing.get("is_business"):
+        return False
+
+    price = listing.get("price")
+    if price is None:
+        return False
+
+    text = f"{listing.get('title', '')} {listing.get('description', '')}"
+    if is_part_out_listing(text):
+        return False
+
+    if matches_specific_ssd_model(text) is None:
+        return False
+
+    capacity = extract_ssd_capacity_gb(text)
+    if capacity is None:
+        return False
+
+    threshold = specific_ssd_price_threshold(capacity)
+    if threshold is None:
+        return True
+
+    return price <= threshold
 
 
 def passes_hard_filters(listing: dict, config: dict) -> bool:

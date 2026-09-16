@@ -275,6 +275,45 @@ bare SSD and a cheap whole laptop indistinguishable in the inbox without
 opening each email. Either way it's visually distinct from `[OLX Deal]`
 business alerts.
 
+## Third rule: specific known-good SSD models (`passes_specific_ssd_filter`)
+
+A third, independent alert rule, added after the user asked about the
+real-world quality of specific OEM NVMe chips (SK Hynix PC801, WD PC
+SN810, Micron 3400, Kioxia XG8, Samsung PM981a, Samsung PM9A1 — all
+known-good drives found stock in business laptops) and wanted them
+flagged on sight regardless of what system they're listed in.
+
+Scans the union of every listing already fetched this run (both the
+business `listings` and all `ssd_deal_listings`, deduped by ad id) —
+no separate scrape, since these models can turn up in either category.
+
+Rules (all AND'd):
+1. Private seller only (`is_business` false).
+2. Not a part-out listing (`is_part_out_listing`, same check as the
+   SSD-deal rule).
+3. `matches_specific_ssd_model` finds one of the six model name
+   substrings (case-insensitive, diacritics-normalized) anywhere in
+   `title + " " + description`. Plain substring match — these are
+   specific enough part/controller codenames that false positives
+   aren't a realistic concern (unlike the loose SSD-deal rule).
+4. Capacity extracted via the same `extract_ssd_capacity_gb` as the
+   SSD-deal rule; unknown capacity excludes the listing (need it for
+   the tiered price check below).
+5. Price threshold from `specific_ssd_price_threshold`, tiered by
+   `capacity_bucket`: 512GB → 200 lei, 1TB → 400 lei, at/above 2TB → no
+   ceiling at all (any price qualifies, per explicit user request "de
+   2 tb orice pret"). Below 512GB falls back to the 512GB tier's price.
+   Model list and tiers are hardcoded in `filters.py`
+   (`_SPECIFIC_SSD_MODELS`, `_SPECIFIC_SSD_PRICE_TIERS`), not
+   config-driven — same pattern as the business rule's model/CPU regex
+   lists.
+
+Deduped independently via its own `specific_ssd:<id>` key prefix in the
+shared `seen_listings` table, so the same ad can also separately alert
+under the business or SSD-deal rules without colliding. Distinct email
+subject `[SSD Specific]` (`notifier.build_specific_ssd_email`) includes
+the matched model name and detected capacity.
+
 ## Notification (`notifier.py`)
 
 - Gmail SMTP (`smtp.gmail.com:587`, STARTTLS) using an app password

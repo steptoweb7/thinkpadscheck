@@ -368,3 +368,87 @@ def test_run_learns_standalone_drive_market_price_and_alerts_on_real_discount(tm
     assert mock_send_ssd_email.call_count == 1
     (listing_arg, _capacity_arg, _gmail_arg, _is_standalone_arg), _ = mock_send_ssd_email.call_args
     assert listing_arg["id"] == "6"
+
+
+def test_run_sends_specific_ssd_email_for_known_good_model(tmp_path, monkeypatch):
+    state = {
+        "listing": {
+            "listing": {
+                "ads": [
+                    {
+                        "id": 700,
+                        "title": "SSD Kioxia XG8 512GB NVMe",
+                        "description": "Scos din laptop functional",
+                        "url": "https://www.olx.ro/d/oferta/test-700.html",
+                        "createdTime": "2026-09-16T08:00:00+03:00",
+                        "location": {"pathName": "Cluj"},
+                        "price": {"regularPrice": {"value": 180}},
+                        "params": [{"key": "state", "value": "Utilizat"}, {"key": "tip", "value": "SSD"}],
+                    }
+                ]
+            }
+        }
+    }
+    html = f"<html><script>window.__PRERENDERED_STATE__ = {json.dumps(json.dumps(state))};\n</script></html>"
+
+    monkeypatch.chdir(tmp_path)
+    config_path = _write_config_with_ssd_deal(tmp_path)
+
+    with patch(
+        "olx_bot.main.fetch_html", side_effect=_fetch_html_by_url(_fake_html(), html)
+    ), patch("olx_bot.main.send_email"), patch(
+        "olx_bot.main.send_ssd_deal_email"
+    ), patch(
+        "olx_bot.main.send_specific_ssd_email"
+    ) as mock_send_specific:
+        main_module.run(config_path)
+
+    assert mock_send_specific.call_count == 1
+    (listing_arg, capacity_arg, model_arg, _gmail_arg), _ = mock_send_specific.call_args
+    assert listing_arg["id"] == "700"
+    assert capacity_arg == 512
+    assert model_arg == "xg8"
+
+    with open(tmp_path / "alerts_log.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    specific_rows = [r for r in rows if r["rule"] == "specific_ssd"]
+    assert len(specific_rows) == 1
+    assert specific_rows[0]["model"] == "xg8"
+    assert specific_rows[0]["ssd_capacity_gb"] == "512"
+
+
+def test_run_specific_ssd_is_idempotent_on_second_pass(tmp_path, monkeypatch):
+    state = {
+        "listing": {
+            "listing": {
+                "ads": [
+                    {
+                        "id": 701,
+                        "title": "SSD Samsung PM9A1 1TB",
+                        "description": "Nou, sigilat",
+                        "url": "https://www.olx.ro/d/oferta/test-701.html",
+                        "createdTime": "2026-09-16T08:00:00+03:00",
+                        "location": {"pathName": "Iasi"},
+                        "price": {"regularPrice": {"value": 350}},
+                        "params": [{"key": "tip", "value": "SSD"}],
+                    }
+                ]
+            }
+        }
+    }
+    html = f"<html><script>window.__PRERENDERED_STATE__ = {json.dumps(json.dumps(state))};\n</script></html>"
+
+    monkeypatch.chdir(tmp_path)
+    config_path = _write_config_with_ssd_deal(tmp_path)
+
+    with patch(
+        "olx_bot.main.fetch_html", side_effect=_fetch_html_by_url(_fake_html(), html)
+    ), patch("olx_bot.main.send_email"), patch(
+        "olx_bot.main.send_ssd_deal_email"
+    ), patch(
+        "olx_bot.main.send_specific_ssd_email"
+    ) as mock_send_specific:
+        main_module.run(config_path)
+        main_module.run(config_path)
+
+    assert mock_send_specific.call_count == 1

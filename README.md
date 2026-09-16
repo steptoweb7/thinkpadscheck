@@ -32,6 +32,18 @@ score for each new match. Design: see
    ```
    Check `bot.log` for errors, and confirm `seen_listings.db` was created.
 
+## Specific known-good SSD models (`[SSD Specific]` alerts)
+
+A third, independent rule scans every listing (business laptops, the
+SSD-deal categories, everything) for a specific list of known-good OEM
+NVMe models — SK Hynix PC801, WD PC SN810, Micron 3400, Kioxia XG8,
+Samsung PM981a, Samsung PM9A1 — regardless of what system they're in.
+Price ceiling is tiered by capacity: 512GB up to 200 lei, 1TB up to 400
+lei, 2TB or larger at any price. The model list and price tiers are
+hardcoded in `olx_bot/filters.py` (`_SPECIFIC_SSD_MODELS`,
+`_SPECIFIC_SSD_PRICE_TIERS`) rather than configurable, matching how the
+business-rule model/CPU patterns work.
+
 ## Changing settings (`settings.yaml`)
 
 `settings.yaml` at the project root holds every non-secret setting:
