@@ -314,6 +314,20 @@ under the business or SSD-deal rules without colliding. Distinct email
 subject `[SSD Specific]` (`notifier.build_specific_ssd_email`) includes
 the matched model name and detected capacity.
 
+## Fourth rule: enterprise/datacenter SSD models (`passes_enterprise_ssd_filter`)
+
+Same rules, same price tiers (`specific_ssd_price_threshold` — 512GB<=200
+lei, 1TB<=400 lei, 2TB+ any price), same "any listing category" scan as
+the third rule, just a different model list and a distinct email label
+— added right after the third rule, per explicit user request
+("aceleasi reguli si pt astea"). Targets known-good server-pull SATA/NVMe
+drives instead of laptop-OEM chips: Samsung SM883, Micron 5300 MAX,
+Kingston DC500M, Kioxia HK6-V, Seagate Nytro 1551, Intel D3-S4610, Intel
+D3-S4510, Intel DC S3710, Intel DC S3610, Intel DC P4510, Intel DC
+P4610 (`filters._ENTERPRISE_SSD_MODELS`). Deduped via its own
+`enterprise_ssd:<id>` key prefix. Distinct email subject
+`[SSD Enterprise Level]` (`notifier.build_enterprise_ssd_email`).
+
 ## Notification (`notifier.py`)
 
 - Gmail SMTP (`smtp.gmail.com:587`, STARTTLS) using an app password

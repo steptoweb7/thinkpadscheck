@@ -63,6 +63,24 @@ def build_specific_ssd_email(listing: dict, ssd_gb: int, model: str) -> MIMEText
     return msg
 
 
+def build_enterprise_ssd_email(listing: dict, ssd_gb: int, model: str) -> MIMEText:
+    subject = f"[SSD Enterprise Level] {model.upper()} {ssd_gb}GB - {listing['price']} lei"
+
+    body = (
+        f"Titlu: {listing['title']}\n"
+        f"Pret: {listing['price']} lei\n"
+        f"Model SSD detectat: {model.upper()}\n"
+        f"Capacitate detectata: {ssd_gb}GB\n"
+        f"Locatie: {listing['location']}\n"
+        f"Postat: {listing['created_time']}\n"
+        f"Link: {listing['url']}\n"
+    )
+
+    msg = MIMEText(body, "plain", "utf-8")
+    msg["Subject"] = subject
+    return msg
+
+
 def _send(msg: MIMEText, gmail_config: dict) -> None:
     msg["From"] = gmail_config["address"]
     msg["To"] = gmail_config["to"]
@@ -85,3 +103,7 @@ def send_ssd_deal_email(
 
 def send_specific_ssd_email(listing: dict, ssd_gb: int, model: str, gmail_config: dict) -> None:
     _send(build_specific_ssd_email(listing, ssd_gb, model), gmail_config)
+
+
+def send_enterprise_ssd_email(listing: dict, ssd_gb: int, model: str, gmail_config: dict) -> None:
+    _send(build_enterprise_ssd_email(listing, ssd_gb, model), gmail_config)

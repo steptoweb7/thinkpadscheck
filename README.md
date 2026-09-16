@@ -44,6 +44,16 @@ hardcoded in `olx_bot/filters.py` (`_SPECIFIC_SSD_MODELS`,
 `_SPECIFIC_SSD_PRICE_TIERS`) rather than configurable, matching how the
 business-rule model/CPU patterns work.
 
+## Enterprise/datacenter SSD models (`[SSD Enterprise Level]` alerts)
+
+A fourth, independent rule, using the exact same tiered price logic as
+the specific-model rule above, scans for known-good enterprise/server
+SSDs: Samsung SM883, Micron 5300 MAX, Kingston DC500M, Kioxia HK6-V,
+Seagate Nytro 1551, Intel D3-S4610, Intel D3-S4510, Intel DC S3710,
+Intel DC S3610, Intel DC P4510, Intel DC P4610. Same price ceiling:
+512GB up to 200 lei, 1TB up to 400 lei, 2TB+ any price. Model list is
+hardcoded in `olx_bot/filters.py` (`_ENTERPRISE_SSD_MODELS`).
+
 ## Changing settings (`settings.yaml`)
 
 `settings.yaml` at the project root holds every non-secret setting:

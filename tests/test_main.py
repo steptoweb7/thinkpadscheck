@@ -452,3 +452,91 @@ def test_run_specific_ssd_is_idempotent_on_second_pass(tmp_path, monkeypatch):
         main_module.run(config_path)
 
     assert mock_send_specific.call_count == 1
+
+
+def test_run_sends_enterprise_ssd_email_for_known_good_model(tmp_path, monkeypatch):
+    state = {
+        "listing": {
+            "listing": {
+                "ads": [
+                    {
+                        "id": 800,
+                        "title": "SSD Intel DC S3610 480GB SATA",
+                        "description": "Scos functional din server",
+                        "url": "https://www.olx.ro/d/oferta/test-800.html",
+                        "createdTime": "2026-09-16T08:00:00+03:00",
+                        "location": {"pathName": "Timisoara"},
+                        "price": {"regularPrice": {"value": 150}},
+                        "params": [{"key": "state", "value": "Utilizat"}, {"key": "tip", "value": "SSD"}],
+                    }
+                ]
+            }
+        }
+    }
+    html = f"<html><script>window.__PRERENDERED_STATE__ = {json.dumps(json.dumps(state))};\n</script></html>"
+
+    monkeypatch.chdir(tmp_path)
+    config_path = _write_config_with_ssd_deal(tmp_path)
+
+    with patch(
+        "olx_bot.main.fetch_html", side_effect=_fetch_html_by_url(_fake_html(), html)
+    ), patch("olx_bot.main.send_email"), patch(
+        "olx_bot.main.send_ssd_deal_email"
+    ), patch(
+        "olx_bot.main.send_specific_ssd_email"
+    ), patch(
+        "olx_bot.main.send_enterprise_ssd_email"
+    ) as mock_send_enterprise:
+        main_module.run(config_path)
+
+    assert mock_send_enterprise.call_count == 1
+    (listing_arg, capacity_arg, model_arg, _gmail_arg), _ = mock_send_enterprise.call_args
+    assert listing_arg["id"] == "800"
+    assert capacity_arg == 480
+    assert model_arg == "s3610"
+
+    with open(tmp_path / "alerts_log.csv", newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    enterprise_rows = [r for r in rows if r["rule"] == "enterprise_ssd"]
+    assert len(enterprise_rows) == 1
+    assert enterprise_rows[0]["model"] == "s3610"
+    assert enterprise_rows[0]["ssd_capacity_gb"] == "480"
+
+
+def test_run_enterprise_ssd_is_idempotent_on_second_pass(tmp_path, monkeypatch):
+    state = {
+        "listing": {
+            "listing": {
+                "ads": [
+                    {
+                        "id": 801,
+                        "title": "SSD Intel DC P4610 1.6TB NVMe",
+                        "description": "Nou, sigilat",
+                        "url": "https://www.olx.ro/d/oferta/test-801.html",
+                        "createdTime": "2026-09-16T08:00:00+03:00",
+                        "location": {"pathName": "Arad"},
+                        "price": {"regularPrice": {"value": 900}},
+                        "params": [{"key": "tip", "value": "SSD"}],
+                    }
+                ]
+            }
+        }
+    }
+    html = f"<html><script>window.__PRERENDERED_STATE__ = {json.dumps(json.dumps(state))};\n</script></html>"
+
+    monkeypatch.chdir(tmp_path)
+    config_path = _write_config_with_ssd_deal(tmp_path)
+
+    with patch(
+        "olx_bot.main.fetch_html", side_effect=_fetch_html_by_url(_fake_html(), html)
+    ), patch("olx_bot.main.send_email"), patch(
+        "olx_bot.main.send_ssd_deal_email"
+    ), patch(
+        "olx_bot.main.send_specific_ssd_email"
+    ), patch(
+        "olx_bot.main.send_enterprise_ssd_email"
+    ) as mock_send_enterprise:
+        main_module.run(config_path)
+        main_module.run(config_path)
+
+    assert mock_send_enterprise.call_count == 1

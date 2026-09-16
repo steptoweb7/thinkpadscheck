@@ -71,6 +71,24 @@ _SPECIFIC_SSD_MODELS = [
 # price ceiling at all (any price qualifies).
 _SPECIFIC_SSD_PRICE_TIERS = {512: 200, 1000: 400}
 
+# Enterprise/datacenter SSD deal: same rules and price tiers as the
+# specific-model rule above (user: "aceleasi reguli si pt astea"), just a
+# different model list and a distinct email label -- these are server
+# drives (power-loss protection, high DWPD) rather than laptop-OEM chips.
+_ENTERPRISE_SSD_MODELS = [
+    "sm883",
+    "5300 max",
+    "dc500m",
+    "hk6-v",
+    "nytro 1551",
+    "s4610",
+    "s4510",
+    "s3710",
+    "s3610",
+    "p4510",
+    "p4610",
+]
+
 _CAPACITY_PATTERN = r"\b(\d+(?:\.\d+)?)\s*(gb|tb)\b"
 _MAX_PLAUSIBLE_CAPACITY_GB = 8000  # 8TB ceiling; larger matches are parsing noise, not real drives
 _STORAGE_KEYWORD_PATTERN = re.compile(r"\b(ssd|hdd)\b")
@@ -292,6 +310,45 @@ def passes_specific_ssd_filter(listing: dict, config: dict) -> bool:
         return False
 
     if matches_specific_ssd_model(text) is None:
+        return False
+
+    capacity = extract_ssd_capacity_gb(text)
+    if capacity is None:
+        return False
+
+    threshold = specific_ssd_price_threshold(capacity)
+    if threshold is None:
+        return True
+
+    return price <= threshold
+
+
+def matches_enterprise_ssd_model(text: str) -> str | None:
+    """Same idea as matches_specific_ssd_model, for enterprise/datacenter
+    SATA and NVMe drives (server pulls) instead of laptop-OEM chips."""
+    normalized = normalize_text(text)
+    for model in _ENTERPRISE_SSD_MODELS:
+        if model in normalized:
+            return model
+    return None
+
+
+def passes_enterprise_ssd_filter(listing: dict, config: dict) -> bool:
+    """Identical rules to passes_specific_ssd_filter (same price tiers
+    per capacity) — only the model list and, at the notification layer,
+    the email label differ. User: "aceleasi reguli si pt astea"."""
+    if listing.get("is_business"):
+        return False
+
+    price = listing.get("price")
+    if price is None:
+        return False
+
+    text = f"{listing.get('title', '')} {listing.get('description', '')}"
+    if is_part_out_listing(text):
+        return False
+
+    if matches_enterprise_ssd_model(text) is None:
         return False
 
     capacity = extract_ssd_capacity_gb(text)

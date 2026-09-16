@@ -2,7 +2,9 @@ from olx_bot.db import init_db, record_price_observation
 from olx_bot.filters import (
     capacity_bucket,
     extract_ssd_capacity_gb,
+    matches_enterprise_ssd_model,
     matches_specific_ssd_model,
+    passes_enterprise_ssd_filter,
     passes_hard_filters,
     passes_specific_ssd_filter,
     passes_ssd_deal_filter,
@@ -525,3 +527,85 @@ def test_specific_ssd_deal_excludes_part_out_listing():
 def test_specific_ssd_deal_excludes_when_capacity_unknown():
     listing = specific_ssd_listing(title="SSD Kioxia XG8", description="")
     assert passes_specific_ssd_filter(listing, {}) is False
+
+
+# --- fourth, independent rule: enterprise/datacenter SSD models --
+# identical rules and price tiers as the specific-model rule above, just
+# a different model list.
+
+
+def enterprise_ssd_listing(**overrides):
+    listing = {
+        "title": "SSD Intel DC S3610 480GB SATA",
+        "description": "Scos functional din server",
+        "price": 150,
+        "is_business": False,
+        "params": {},
+    }
+    listing.update(overrides)
+    return listing
+
+
+def test_matches_enterprise_ssd_model_finds_each_known_model():
+    assert matches_enterprise_ssd_model("Samsung SM883 480GB") == "sm883"
+    assert matches_enterprise_ssd_model("Micron 5300 MAX 960GB") == "5300 max"
+    assert matches_enterprise_ssd_model("Kingston DC500M 480GB") == "dc500m"
+    assert matches_enterprise_ssd_model("Kioxia HK6-V 480GB") == "hk6-v"
+    assert matches_enterprise_ssd_model("Seagate Nytro 1551 960GB") == "nytro 1551"
+    assert matches_enterprise_ssd_model("Intel D3-S4610 960GB") == "s4610"
+    assert matches_enterprise_ssd_model("Intel D3-S4510 960GB") == "s4510"
+    assert matches_enterprise_ssd_model("Intel DC S3710 800GB") == "s3710"
+    assert matches_enterprise_ssd_model("Intel DC S3610 480GB") == "s3610"
+    assert matches_enterprise_ssd_model("Intel DC P4510 1TB NVMe") == "p4510"
+    assert matches_enterprise_ssd_model("Intel DC P4610 1.6TB NVMe") == "p4610"
+
+
+def test_matches_enterprise_ssd_model_returns_none_for_unrelated_ssd():
+    assert matches_enterprise_ssd_model("Samsung 970 EVO Plus 512GB") is None
+
+
+def test_enterprise_ssd_deal_512gb_passes_under_threshold():
+    listing = enterprise_ssd_listing(price=200)
+    assert passes_enterprise_ssd_filter(listing, {}) is True
+
+
+def test_enterprise_ssd_deal_512gb_fails_over_threshold():
+    listing = enterprise_ssd_listing(price=201)
+    assert passes_enterprise_ssd_filter(listing, {}) is False
+
+
+def test_enterprise_ssd_deal_1tb_passes_under_threshold():
+    listing = enterprise_ssd_listing(title="SSD Intel DC P4510 1TB NVMe", price=400)
+    assert passes_enterprise_ssd_filter(listing, {}) is True
+
+
+def test_enterprise_ssd_deal_1tb_fails_over_threshold():
+    listing = enterprise_ssd_listing(title="SSD Intel DC P4510 1TB NVMe", price=401)
+    assert passes_enterprise_ssd_filter(listing, {}) is False
+
+
+def test_enterprise_ssd_deal_2tb_passes_at_any_price():
+    listing = enterprise_ssd_listing(title="SSD Kioxia HK6-V 2TB", price=5000)
+    assert passes_enterprise_ssd_filter(listing, {}) is True
+
+
+def test_enterprise_ssd_deal_excludes_non_matching_model():
+    listing = enterprise_ssd_listing(title="SSD Kingston A400 512GB", price=50)
+    assert passes_enterprise_ssd_filter(listing, {}) is False
+
+
+def test_enterprise_ssd_deal_excludes_business_seller():
+    listing = enterprise_ssd_listing(is_business=True)
+    assert passes_enterprise_ssd_filter(listing, {}) is False
+
+
+def test_enterprise_ssd_deal_excludes_part_out_listing():
+    listing = enterprise_ssd_listing(
+        description="Dezmembrez. Pretul e doar pentru carcasa, restul se negociaza."
+    )
+    assert passes_enterprise_ssd_filter(listing, {}) is False
+
+
+def test_enterprise_ssd_deal_excludes_when_capacity_unknown():
+    listing = enterprise_ssd_listing(title="SSD Intel DC S3610", description="")
+    assert passes_enterprise_ssd_filter(listing, {}) is False
