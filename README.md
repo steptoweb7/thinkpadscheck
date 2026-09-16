@@ -50,7 +50,8 @@ A fourth, independent rule, using the exact same tiered price logic as
 the specific-model rule above, scans for known-good enterprise/server
 SSDs: Samsung SM883, Micron 5300 MAX, Kingston DC500M, Kioxia HK6-V,
 Seagate Nytro 1551, Intel D3-S4610, Intel D3-S4510, Intel DC S3710,
-Intel DC S3610, Intel DC P4510, Intel DC P4610. Same price ceiling:
+Intel DC S3610, Intel DC P4510, Intel DC P4610, Micron 5400 MAX,
+Solidigm D3-S4620, Samsung PM897, Samsung PM893. Same price ceiling:
 512GB up to 200 lei, 1TB up to 400 lei, 2TB+ any price. Model list is
 hardcoded in `olx_bot/filters.py` (`_ENTERPRISE_SSD_MODELS`).
 

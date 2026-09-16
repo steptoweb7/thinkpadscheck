@@ -116,6 +116,10 @@ _ENTERPRISE_SSD_MODELS = [
     "s3610",
     "p4510",
     "p4610",
+    "5400 max",
+    "s4620",
+    "pm897",
+    "pm893",
 ]
 
 _CAPACITY_PATTERN = r"\b(\d+(?:\.\d+)?)\s*(gb|tb)\b"

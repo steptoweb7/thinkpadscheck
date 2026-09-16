@@ -333,7 +333,8 @@ the third rule, just a different model list and a distinct email label
 drives instead of laptop-OEM chips: Samsung SM883, Micron 5300 MAX,
 Kingston DC500M, Kioxia HK6-V, Seagate Nytro 1551, Intel D3-S4610, Intel
 D3-S4510, Intel DC S3710, Intel DC S3610, Intel DC P4510, Intel DC
-P4610 (`filters._ENTERPRISE_SSD_MODELS`). Deduped via its own
+P4610, Micron 5400 MAX, Solidigm D3-S4620, Samsung PM897, Samsung PM893
+(`filters._ENTERPRISE_SSD_MODELS`). Deduped via its own
 `enterprise_ssd:<id>` key prefix. Distinct email subject
 `[SSD Enterprise Level]` (`notifier.build_enterprise_ssd_email`).
 

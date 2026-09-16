@@ -574,6 +574,10 @@ def test_matches_enterprise_ssd_model_finds_each_known_model():
     assert matches_enterprise_ssd_model("Intel DC S3610 480GB") == "s3610"
     assert matches_enterprise_ssd_model("Intel DC P4510 1TB NVMe") == "p4510"
     assert matches_enterprise_ssd_model("Intel DC P4610 1.6TB NVMe") == "p4610"
+    assert matches_enterprise_ssd_model("Micron 5400 MAX 960GB") == "5400 max"
+    assert matches_enterprise_ssd_model("Solidigm D3-S4620 1.92TB") == "s4620"
+    assert matches_enterprise_ssd_model("Samsung PM897 960GB") == "pm897"
+    assert matches_enterprise_ssd_model("Samsung PM893 960GB") == "pm893"
 
 
 def test_matches_enterprise_ssd_model_returns_none_for_unrelated_ssd():
